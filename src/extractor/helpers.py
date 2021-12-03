@@ -230,38 +230,5 @@ def reproject(crs_from, crs_to, lat, long):
     return reprj_long, reprj_lat
 
 
-# Function to apply margin for extensions for Data Producer Notebook
-def applyMargin(value):
-    margin = 20 # ie 20% of value to apply
-    margin_rel = value * margin / 100
-    return margin_rel
-
-
-def getTimeMargin(time):
-    year = int(str(time)[:4])
-    month = int(str(time)[4:])
-    if month == 1:
-        month1 = 12
-        month2 = month+1
-        year1 = year-1
-        year2 = year
-    elif month == 12:
-        month1 = month-1
-        month2 = 1
-        year1 = year
-        year2 = year+1
-    else:
-        month1 = month-1
-        month2 = month+1
-        year1 = year2 = year
-
-    day_start = 1
-    day_end = calendar.monthrange(year2, month2)[1] # only used for the last day of month
-
-    time_start = datetime(year1, month1, day_start)
-    time_end = datetime(year2, month2, day_end)
-
-    return time_start, time_end
-
     
     

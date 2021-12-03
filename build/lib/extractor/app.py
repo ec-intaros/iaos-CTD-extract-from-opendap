@@ -41,11 +41,19 @@ logging.basicConfig(stream=sys.stderr,
     type=click.STRING,
 )
 @click.option(
-    '--time',           
-    '-t',           
-    'time',           
+    '--time1',           
+    '-t1',           
+    'time1',           
     required=True,  
-    help='The month and the year of interest, expressed in the format YYYYMM.',
+    help='The date of the starting time, expressed in the format YYYYMMDD.',
+    type=click.INT,
+)
+@click.option(
+    '--time2',           
+    '-t2',           
+    'time2',           
+    required=True,  
+    help='The date of the ending time, expressed in the format YYYYMMDD.',
     type=click.INT,
 )
 @click.option(
@@ -80,14 +88,17 @@ def main(ctx, **kwargs):
     #==> Read Input Arguments
     depth = kwargs['depth']
     bbox = [int(bb) for bb in kwargs['bbox'].split(',')]
-    time = kwargs['time']
+    time1 = str(kwargs['time1'])
+    time2 = str(kwargs['time2'])
+    assert time1[:4] == time2[:4], 'ERROR: Years are different, please check.'
+    
     mesh = kwargs['mesh']
     var = kwargs['var']
-    
+
     #==> Apply Extractor
-    out_file = extract(depth, bbox, time, mesh, var)
+    out_file = extract(depth, bbox, time1, time2, mesh, var)
     logging.info(out_file)    
-    
+    stop
     # Move results / outputs from TMPDIR back to local
     if "TMPDIR" in os.environ:
         print('Here I have to move the output CSV/NetCDF file back to local')

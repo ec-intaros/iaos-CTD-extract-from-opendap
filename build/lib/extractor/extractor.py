@@ -108,7 +108,7 @@ def makePositionDF(position_dict):
     return(position_df)
     
 
-def filterBBOXandTIME(position_df, bbox, time):
+def filterBBOXandTIME(position_df, bbox, time1, time2):
     # Filter the position_df dataframe by BBOX
     position_df_bbox = position_df[(position_df.loc[:,'Longitude_WGS84'] >= bbox[0]) & 
                                    (position_df.loc[:,'Longitude_WGS84'] <= bbox[1]) & 
@@ -121,14 +121,15 @@ def filterBBOXandTIME(position_df, bbox, time):
 #     print(position_df_bbox)
 
     # Filter the position_df_bbox dataframe by TIME
-    time_start, time_end = getTimeMargin(time) # get start and end time limits  
-    
+    time_start = datetime(int(time1[:4]), int(time1[4:6]), int(time1[6:]))
+    time_end = datetime(int(time2[:4]), int(time2[4:6]), int(time2[6:]))
+
     position_df_bbox_timerange = position_df_bbox.loc[(position_df_bbox['Time']>=time_start) & 
                                                       (position_df_bbox['Time']<=time_end)]
 
     # Print filtering results on original dataframe
     time_filter_str = f'{time_start.strftime("%Y%m%d")}-{time_end.strftime("%Y%m%d")}'
-    print(f'User-defined YearMonth: {time}')
+    print(f'User-defined Time Range: {time1}-{time2}')
     print(f'Time range (including margins): {time_filter_str}')
     sel_outof_all = f'{len(position_df_bbox_timerange)} out of {len(position_df)}.'
     print(f'Selected positions (out of available positions): {sel_outof_all}')
@@ -146,14 +147,17 @@ def getIndices(df_filtered):
     
     return index_dict
 
-def extract(depth, bbox, time, mesh, var):
-    
+
+def extract(depth, bbox, time1, time2, mesh, var):
+
     #============= Set-up ==============
+    assert time1[:4] == time2[:4], 'ERROR: different year, please check.'
+    
     global year # Define year as global variable
-    year = int(str(time)[:4])
+    year = int(time1[:4])
     
     # Print input parameters
-    logging.info(f'Input Parameters:\nDepth: {depth}\nBBOX: {bbox}\nTime: {time}\nMesh: {mesh}\nVars: {var.split(",")}')
+    logging.info(f'Input Parameters:\nDepth: {depth}\nBBOX: {bbox}\nTime Range: {time1}-{time2}\nMesh: {mesh}\nVars: {var.split(",")}')
     
     # Define URL     
     nmdc_url = 'http://opendap1.nodc.no/opendap/physics/point/yearly/' # URL of Norwegian Marine Data Centre (NMDC) data server 
@@ -175,7 +179,7 @@ def extract(depth, bbox, time, mesh, var):
     position_df = makePositionDF(position_dict)
     
     # Filter by BBOX and Time
-    df_filtered = filterBBOXandTIME(position_df, bbox, time)
+    df_filtered = filterBBOXandTIME(position_df, bbox, time1, time2)
     print(df_filtered)
 
     # Dictionary of indices
