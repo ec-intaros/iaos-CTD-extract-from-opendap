@@ -1,0 +1,3 @@
+[console_scripts]
+extractor = extractor.app:main
+
