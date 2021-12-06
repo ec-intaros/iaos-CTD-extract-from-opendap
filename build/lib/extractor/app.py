@@ -65,9 +65,9 @@ logging.basicConfig(stream=sys.stderr,
     type=click.FLOAT,
 )
 @click.option(
-    '--var',           
+    '--vars',           
     '-v',           
-    'var',           
+    'vars',           
     required=True,  
     help='The variable(s) of interest, e.g. "TEMP, PRESS".',
     type=click.STRING,
@@ -93,10 +93,10 @@ def main(ctx, **kwargs):
     assert time1[:4] == time2[:4], 'ERROR: Years are different, please check.'
     
     mesh = kwargs['mesh']
-    var = kwargs['var']
+    vars_sel = kwargs['vars'].split(',')
 
     #==> Apply Extractor
-    out_file = extract(depth, bbox, time1, time2, mesh, var)
+    out_file = extract(depth, bbox, time1, time2, mesh, vars_sel)
     logging.info(out_file)    
     stop
     # Move results / outputs from TMPDIR back to local

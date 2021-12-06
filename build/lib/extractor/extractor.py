@@ -69,7 +69,7 @@ def getPositionDict(pc_dim_dict, url_info):
 
         position_dict[pc] = {'data': remote_data, 
                              'data_attr': data_attr}
-    # print(position_dict)    
+#     print(position_dict)    
     
     return position_dict
     
@@ -128,9 +128,8 @@ def filterBBOXandTIME(position_df, bbox, time1, time2):
                                                       (position_df_bbox['Time']<=time_end)]
 
     # Print filtering results on original dataframe
-    time_filter_str = f'{time_start.strftime("%Y%m%d")}-{time_end.strftime("%Y%m%d")}'
+#     time_filter_str = f'{time_start.strftime("%Y%m%d")}-{time_end.strftime("%Y%m%d")}'
     print(f'User-defined Time Range: {time1}-{time2}')
-    print(f'Time range (including margins): {time_filter_str}')
     sel_outof_all = f'{len(position_df_bbox_timerange)} out of {len(position_df)}.'
     print(f'Selected positions (out of available positions): {sel_outof_all}')
 
@@ -148,8 +147,94 @@ def getIndices(df_filtered):
     return index_dict
 
 
-def extract(depth, bbox, time1, time2, mesh, var):
+def extractData(position_dict, pc_dim_dict, depth, vars_sel, url_info):
+    data_dict = {}
+    metadata = {}
 
+    for pc in position_dict.keys():
+
+        metadata[pc] = {}
+
+        v_min = int(float(position_dict[pc]['data_attr'][6]))
+        metadata[pc]['vmin'] = v_min
+        metadata[pc]['depth_abs_v1'] = 0 # this is fixed
+        metadata[pc]['depth_abs_v2'] = pc_dim_dict[pc]['DEPTH'] # this is fixed
+
+        # ==============================================================================
+        """
+        Define here the DEPTH range of your selection, in meters. Note that either:
+        - 'depth_m_v1' is equal to the lower bound (ie index=0), or 
+        - 'depth_m_v2' is equal to the upper bound (ie index=-1)
+        """
+        metadata[pc]['depth_m_v1'] = 0 
+        metadata[pc]['depth_m_v2'] = depth
+        # ==============================================================================
+
+        # assert metadata[pc]['depth_m_v1'] < metadata[pc]['depth_m_v2'], 'ERROR: the lower bound must be lower than the higher bound' 
+        # assert metadata[pc]['depth_m_v1'] == 0 or metadata[pc]['depth_m_v2'] == pc_dim_dict[pc]['DEPTH'], 'ERROR: one of the two values must be equal to one of the lower/upper bounds'
+
+        #     print(f'DEPTH range of interest (meters): {metadata[pc]["depth_m_v1"]} - {metadata[pc]["depth_m_v2"]}')
+
+        # the start and stop values are adjusted based on the vmin value
+        if metadata[pc]['vmin'] == 1: 
+            if metadata[pc]['depth_m_v1'] == 0: # 
+                metadata[pc]['depth_newindex_v1'] = metadata[pc]['depth_m_v1'] # the same
+                metadata[pc]['depth_newindex_v2'] = metadata[pc]['depth_m_v2'] # the same, so I have the right size. When I shift and add the nan, I get rid of further element on the right
+                metadata[pc]['depth_newindex4xr_v2'] = metadata[pc]['depth_m_v2']# - 1
+
+            elif metadata[pc]['depth_m_v1'] != 0: 
+                metadata[pc]['depth_newindex_v1'] = metadata[pc]['depth_m_v1'] - 1 # start one element before
+                metadata[pc]['depth_newindex_v2'] = metadata[pc]['depth_m_v2'] - 1 # last element is excluded, ie stop one element before. But then I'll have to remoove one element
+                metadata[pc]['depth_newindex4xr_v2'] = metadata[pc]['depth_m_v2'] - metadata[pc]['depth_m_v1'] - 1 
+
+        else:
+            metadata[pc]['depth_newindex_v1'] = metadata[pc]['depth_m_v1']
+            metadata[pc]['depth_newindex_v2'] = metadata[pc]['depth_m_v2']
+
+            if metadata[pc]['depth_m_v1'] == 0: # 
+                metadata[pc]['depth_newindex4xr_v2'] = metadata[pc]['depth_m_v2']
+
+            elif metadata[pc]['depth_m_v1'] != 0: 
+                metadata[pc]['depth_newindex4xr_v2'] = metadata[pc]['depth_m_v2'] - metadata[pc]['depth_m_v1']
+
+        metadata[pc]['depth_newindex4xr_v1'] = 0
+
+        pprint.pprint(metadata[pc])
+        print(f'{pc} DEPTH range of interest (adjusted with vmin): {metadata[pc]["depth_newindex_v1"]} - {metadata[pc]["depth_newindex_v2"]}')
+
+        fix_lab = f'58{pc}_CTD_{year}' # platform_codes and year are defined at the beginning of the notebook 
+
+        # Get coordinates (needed for keeping the correct structure, and for plotting) 
+        coords_str = getQueryString(pc_dim_dict[pc], keylist = ['TIME', 'LATITUDE', 'LONGITUDE']) # list the coordinates you want
+
+        # Extract TIME and DEPTH dimension for queries 
+        time_dims = getQuery(pc, start=0, stop=pc_dim_dict[pc]['TIME'])
+        depth_dims = getQuery(pc, start=metadata[pc]['depth_newindex_v1'], stop=metadata[pc]['depth_newindex_v2'])#; print(depth_dims)
+
+        # join TIME and DEPTH for Variables
+        var_str_ALL = []
+        for v in vars_sel: var_str_ALL = np.append(var_str_ALL, f'{v}{time_dims}{depth_dims}')
+        queries_vars = ','.join(var_str_ALL)
+
+        # Build url and url with queries (url_q)
+        url = f'{url_info[0]}{fix_lab}.nc{url_info[1]}?{coords_str}' 
+        url_q = f'{url},{queries_vars}'; print(f'Platform {pc} URL:', url_q)
+
+        remote_data, data_attr = fetch_data(url_q, year)
+
+        data_dict[pc] = {'data': remote_data, 
+                         'data_attr': data_attr}
+
+        print(f'{data_attr}\n')
+
+    print(f'Checking the existing campaigns in the dictionary: {list(data_dict.keys())}')
+    
+    return(data_dict)
+
+
+#=======================================================================================  
+def extract(depth, bbox, time1, time2, mesh, vars_sel):
+    
     #============= Set-up ==============
     assert time1[:4] == time2[:4], 'ERROR: different year, please check.'
     
@@ -157,7 +242,7 @@ def extract(depth, bbox, time1, time2, mesh, var):
     year = int(time1[:4])
     
     # Print input parameters
-    logging.info(f'Input Parameters:\nDepth: {depth}\nBBOX: {bbox}\nTime Range: {time1}-{time2}\nMesh: {mesh}\nVars: {var.split(",")}')
+    logging.info(f'Input Parameters:\nDepth: {depth}\nBBOX: {bbox}\nTime Range: {time1}-{time2}\nMesh: {mesh}\nVars: {vars_sel}')
     
     # Define URL     
     nmdc_url = 'http://opendap1.nodc.no/opendap/physics/point/yearly/' # URL of Norwegian Marine Data Centre (NMDC) data server 
@@ -174,7 +259,7 @@ def extract(depth, bbox, time1, time2, mesh, var):
     
     # Create position_dict
     position_dict = getPositionDict(pc_dim_dict, url_info)
-
+    
     # Match and merge LAT, LONG and TIME of positions in a position_df dataframe
     position_df = makePositionDF(position_dict)
     
@@ -186,7 +271,8 @@ def extract(depth, bbox, time1, time2, mesh, var):
     index_dict = getIndices(df_filtered)
     print(index_dict)
     #============= Data Processing =============
-    
+    data_dict = extractData(position_dict, pc_dim_dict, depth, vars_sel, url_info) # perhaps I can remove pc_dim_dict and related line
+    print(data_dict)
     
     
     stop
