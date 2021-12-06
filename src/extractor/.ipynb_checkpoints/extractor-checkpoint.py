@@ -116,6 +116,7 @@ def filterBBOXandTIME(position_df, bbox, time1, time2):
                                    (position_df.loc[:,'Latitude_WGS84'] <= bbox[3])]
 
     # Print filtering results on original dataframe
+    global sel_outof_all
     sel_outof_all = f'{len(position_df_bbox)} out of {len(position_df)}.'
 #     print(f'Selected positions (out of available positions): {sel_outof_all}')
 #     print(position_df_bbox)
@@ -128,8 +129,7 @@ def filterBBOXandTIME(position_df, bbox, time1, time2):
                                                       (position_df_bbox['Time']<=time_end)]
 
     # Print filtering results on original dataframe
-#     time_filter_str = f'{time_start.strftime("%Y%m%d")}-{time_end.strftime("%Y%m%d")}'
-    print(f'User-defined Time Range: {time1}-{time2}')
+    print(f'User-defined Time Range: {time_filter_str}')
     sel_outof_all = f'{len(position_df_bbox_timerange)} out of {len(position_df)}.'
     print(f'Selected positions (out of available positions): {sel_outof_all}')
 
@@ -147,11 +147,11 @@ def getIndices(df_filtered):
     return index_dict
 
 
-def extractVARsAndDepth(position_dict, pc_dim_dict, depth, vars_sel, url_info):
+def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, vars_sel, url_info):
     data_dict = {}
     metadata = {}
 
-    for pc in position_dict.keys():
+    for pc in pc_sel:
 
         metadata[pc] = {}
 
@@ -167,7 +167,7 @@ def extractVARsAndDepth(position_dict, pc_dim_dict, depth, vars_sel, url_info):
         - 'depth_m_v2' is equal to the upper bound (ie index=-1)
         """
         metadata[pc]['depth_m_v1'] = 0 
-        metadata[pc]['depth_m_v2'] = depth
+        metadata[pc]['depth_m_v2'] = depth_g
         # ==============================================================================
 
         # assert metadata[pc]['depth_m_v1'] < metadata[pc]['depth_m_v2'], 'ERROR: the lower bound must be lower than the higher bound' 
@@ -247,10 +247,10 @@ def getVminDict(overview_df, vars_sel):
     return vmin_dict
 
 
-def filterbyDepthAndIndices(depth, data_dict, metadata, vmin_dict, vars_sel, df_filtered):
+def filterbyDepthAndIndices(data_dict, metadata, vmin_dict, vars_sel, df_filtered):
     filtered_xarr_dict = {}
 
-    print(f'Selected DEPTH: {depth}m')
+    print(f'Selected DEPTH: {depth_g}m')
     for pc in data_dict.keys():
 
         # Generate a filtered xarray with all variables for selected Platform, for a certain DEPTH range
@@ -263,13 +263,13 @@ def filterbyDepthAndIndices(depth, data_dict, metadata, vmin_dict, vars_sel, df_
         filtered_xarr_dict[pc] = filter_xarr_DEPTH(df_filtered, 
                                                    data_dict,
                                                    platform=pc,
-                                                   depth_range=[depth, depth])
+                                                   depth_range=[depth_g, depth_g])
         # display(filtered_xarr_dict[pc])
 
     return filtered_xarr_dict
 
 
-def aggregatePlatforms(data_dict, filtered_xarr_dict, vars_sel):
+def aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict, vars_sel):
     # Dictionary of variables for each platform
     data_var_dict = {}
     depth_arr = []
@@ -288,20 +288,39 @@ def aggregatePlatforms(data_dict, filtered_xarr_dict, vars_sel):
             data_var_dict[pc][var] = filtered_xarr_dict[pc][var]
 
     assert all(x==depth_arr[0] for x in depth_arr), 'ERROR, the DEPTH dimensions must be equal.'
-    # display(data_var_dict)
+        
+    # Now combine arrays across platforms, for each variable
+    merged_arr = {}
 
-    return data_var_dict
+    for var in vars_sel:
+
+        merged_arr[var] = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys()])  
+
+        title = f'Var={var} (Merged Platforms)\nFilter: Time Range={time_filter_str};\nBBOX={bbox_name}; Depth Range={depth_g}m;\nSel/All={sel_outof_all}'
+
+        plotVar_MergedPlatforms(merged_arr[var], var, title=title)
+        # display(merged_arr[var])
+        
+    return data_var_dict, merged_arr
+
 
 #=======================================================================================  
 def extract(depth, bbox, time1, time2, mesh, vars_sel):
     #============= Set-up ==============
     assert time1[:4] == time2[:4], 'ERROR: different year, please check.'
-    
+    global time_filter_str
+    time_filter_str = f'{time1}-{time2}'
     global year # Define year as global variable
     year = int(time1[:4])
     
+    global bbox_name
+    bbox_name = bbox
+
+    global depth_g
+    depth_g = depth
+    
     # Print input parameters
-    logging.info(f'Input Parameters:\nDepth: {depth}\nBBOX: {bbox}\nTime Range: {time1}-{time2}\nMesh: {mesh}\nVars: {vars_sel}')
+    logging.info(f'Input Parameters:\nDepth: {depth_g}\nBBOX: {bbox}\nTime Range: {time1}-{time2}\nMesh: {mesh}\nVars: {vars_sel}')
     
     # Define URL     
     nmdc_url = 'http://opendap1.nodc.no/opendap/physics/point/yearly/' # URL of Norwegian Marine Data Centre (NMDC) data server 
@@ -330,8 +349,11 @@ def extract(depth, bbox, time1, time2, mesh, vars_sel):
     index_dict = getIndices(df_filtered)
     print(index_dict)
     
+    print('\n================================\n================================\n')
     #============= Data Processing =============
-    data_dict, metadata = extractVARsAndDepth(position_dict, pc_dim_dict, depth, vars_sel, url_info) # perhaps I can remove pc_dim_dict and related line
+    pc_sel = df_filtered['Platform'].unique()
+    print(pc_sel)
+    data_dict, metadata = extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, vars_sel, url_info) # perhaps I can remove pc_dim_dict and related line
     print(data_dict)
     
     # Create overview dataframe
@@ -344,14 +366,14 @@ def extract(depth, bbox, time1, time2, mesh, vars_sel):
     print(vmin_dict)
     
     # Filter by Depth and Indices (generated by BBOX and Time indices)
-    filtered_xarr_dict = filterbyDepthAndIndices(depth, data_dict, metadata, vmin_dict, vars_sel, df_filtered)
+    filtered_xarr_dict = filterbyDepthAndIndices(data_dict, metadata, vmin_dict, vars_sel, df_filtered)
     print(filtered_xarr_dict)
     
     # Aggregation of Available Platforms
-    data_var_dict = aggregatePlatforms(data_dict, filtered_xarr_dict, vars_sel)
-    print(data_var_dict)
+    data_var_dict, merged_arr = aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict, vars_sel)
+    print(merged_arr)
     
-
+    # Now Export to File
     
     stop
     return 'EXTRACT complete.'
