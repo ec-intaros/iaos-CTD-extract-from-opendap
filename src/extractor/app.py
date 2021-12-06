@@ -69,7 +69,7 @@ logging.basicConfig(stream=sys.stderr,
     '-v',           
     'vars',           
     required=True,  
-    help='The variable(s) of interest, e.g. "TEMP, PRESS".',
+    help='The variable of interest (e.g. "TEMP"), or a list of them separated by a comma and without spaces (e.g. "TEMP,PRESS").',
     type=click.STRING,
 )
 @click.pass_context
