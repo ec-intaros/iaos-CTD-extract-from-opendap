@@ -325,14 +325,7 @@ def aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict):
     # Now combine arrays across platforms, for each variable
     merged_arr = {}
 
-    for var in vars_g:
-
-        merged_arr[var] = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys()])  
-
-        title = f'Var={var} (Merged Platforms)\nFilter: Time Range={time_filter_str};\nBBOX={bbox_g}; Depth Range={depth_g}m;\nSel/All={sel_outof_all}'
-
-        plotVar_MergedPlatforms(merged_arr[var], var, title=title)
-        # display(merged_arr[var])
+    for var in vars_g: merged_arr[var] = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys()])  
         
     return data_var_dict, merged_arr
 

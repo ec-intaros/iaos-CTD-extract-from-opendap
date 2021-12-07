@@ -150,84 +150,12 @@ def check_alignment(data_dict, pc, var, align_and_nan, vmin_dict):
         print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> data has been aligned already')
         vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once
         
-            
-# Function to plot a specific variable across the merged platforms
-def plotVar_MergedPlatforms(merged_arr_var, var, title):
-    plt.figure()
-    merged_arr_var[var].plot() 
-    plt.title(title)
-    
-
-# Function to plot a specific variable
-def plotFilteredVar(data_xarr_var, title):
-    plt.figure()
-    # display(data_xarr)
-    data_xarr_var.plot()
-    plt.title(title)
-    
 
 # Function to define queries
 def getQuery(pc, start, stop):
     dims = f'[{start}:1:{stop}]' # in the format [start,step,stop]
     return dims
 
-
-# Function to plot an interactive plot with Bokeh
-def plotStatic(df2p, title, long, lat, xlim, ylim, bbox_dict=False):
-    output_notebook() # necessary to show the plot 
-    
-    # Define Hover tool
-    hover = HoverTool(tooltips=[
-        ("Index_ABS", "@Index_ABS"),
-        ("(Long, Lat)", f"(@{long}, @{lat})"),
-        ("Platform", "@Platform")])
-    
-    p = figure(plot_width=500, 
-               plot_height=500, 
-               tools=[hover, WheelZoomTool(), BoxZoomTool(), ResetTool(), PanTool()],
-               title=title,
-               x_range=xlim, 
-               y_range=ylim,
-               x_axis_type="mercator", y_axis_type="mercator" # this allows using the WGS84 units but non-linearly spaced
-              )
-    
-    # Add Country Boundaries
-    tile_provider = get_provider(OSM)
-    p.add_tile(tile_provider)
-    
-    # Add positions by platform in different colors
-    colors = ['blue','red','green','orange','purple','gold','cyan','lime','magenta']
-    
-    for i, pc in enumerate(df2p['Platform'].unique()):
-        p.circle(long, lat, 
-                 size=4, color=colors[i], fill_color='white', 
-                 source=df2p[df2p['Platform']==pc], 
-                 legend_label=f'Platform {pc}')
-
-    # Add BBOX area
-    if bbox_dict: 
-        bbox_val = list(bbox_dict.values())[0]
-        p.quad(left=bbox_val[0], right=bbox_val[1], top=bbox_val[3], bottom=bbox_val[2], 
-               legend_label=list(bbox_dict.keys())[0], fill_color='grey', fill_alpha=0.0, line_color="black")
-
-    # Add legend
-    p.legend.location = "bottom_right"
-    p.legend.click_policy="hide"
-
-    # Create an output html file for displaying, if needed
-#     output_file("interactive_plot_html.html")
-
-    show(p)
-    
-    
-# Function to reproject coordinate systems
-def reproject(crs_from, crs_to, lat, long):
-    transformer = Transformer.from_crs(crs_from=crs_from, crs_to=crs_to)
-    
-    reprj_long = transformer.transform(lat, long)[0]
-    reprj_lat = transformer.transform(lat, long)[1]
-    
-    return reprj_long, reprj_lat
 
 
     
