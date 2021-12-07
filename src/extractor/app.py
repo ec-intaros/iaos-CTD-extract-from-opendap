@@ -64,6 +64,22 @@ logging.basicConfig(stream=sys.stderr,
     help='The variable of interest (e.g. "TEMP"), or a list of them separated by a comma and without spaces (e.g. "TEMP,PRESS").',
     type=click.STRING,
 )
+@click.option(
+    '--separate',           
+    '-s',           
+    'separate',           
+    required=True,  
+    help='if separate==true (“true”, “1”, “t”, “yes”, “y”, and “on”), create a separate output file for each var. If separate==false (“false”, “0”, “f”, “no”, “n”, and “off”), save all vars in a unique output file',
+    type=click.BOOL,
+)
+@click.option(
+    '--formats',           
+    '-f',           
+    'formats',           
+    required=True,  
+    help='The format(s) desired for the generated output. Use: "csv" for CSV, "netcdf" for NetCDF, "csv,netcdf" for both.',
+    type=click.STRING,
+)
 @click.pass_context
 def main(ctx, **kwargs):
     
@@ -83,11 +99,12 @@ def main(ctx, **kwargs):
     time1 = str(kwargs['time1'])
     time2 = str(kwargs['time2'])
     assert time1[:4] == time2[:4], 'ERROR: Years are different, please check.'
-    
     vars_sel = kwargs['vars'].split(',')
-
+    separate = kwargs['separate']
+    formats = [ff.lower() for ff in kwargs['formats'].split(',')]
+    
     #==> Apply Extractor
-    out_file = extract(depth, bbox, time1, time2, vars_sel)
+    out_file = extract(depth, bbox, time1, time2, vars_sel, separate, formats)
     logging.info(out_file)    
     stop
     # Move results / outputs from TMPDIR back to local

@@ -21,6 +21,40 @@ logging.basicConfig(stream=sys.stderr,
 # Global vars
 start_date = datetime(1950, 1, 1) # This reference date comes from the NetCDF convention used for encoding the TIME variable in the CTD measurements
 
+
+def checkParams(depth, bbox, time1, time2, vars_sel, separate, formats):
+    assert time1[:4] == time2[:4], 'ERROR: different year, please check.'
+    global time_filter_str
+    time_filter_str = f'{time1}-{time2}'
+    global year # Define year as global variable
+    year = int(time1[:4])
+    print('Time Range:', time_filter_str)
+    
+    global bbox_g, bbox_str # Define bbox as global variable 
+    bbox_g = bbox
+    bbox_str = '.'.join([str(b) for b in bbox_g])
+    print('Bounding Box:', bbox_g) #, bbox_str)
+    
+    global depth_g # Define bbox as global variable
+    depth_g = depth
+    print(f'Depth: {depth_g}m')
+    
+    global vars_g
+    vars_g = vars_sel
+    print('Vars:', vars_g)
+    
+    global separate_g
+    separate_g = separate
+    print('Separate files per Var:', separate_g)
+    
+    global formats_g
+    formats_g = []
+    if 'csv' in formats: formats_g.append('CSV')
+    if 'netcdf' in formats: formats_g.append('NetCDF')
+    print('Output files format(s):', formats_g)
+    assert len(formats_g) > 0, 'ERROR: Output file format entered is wrong. It must be "csv", "netcdf", or "csv,netcdf".'
+
+    
 def getDDS(url_info):
     # Get dds info, and assign max dimensions to TIME and DEPTH
     
@@ -310,27 +344,12 @@ def mkdir():
     return out_dir
 
 
+
 #=======================================================================================  
-def extract(depth, bbox, time1, time2, vars_sel):
+def extract(depth, bbox, time1, time2, vars_sel, separate, formats):
     #============= Set-up ==============
-    assert time1[:4] == time2[:4], 'ERROR: different year, please check.'
-    global time_filter_str
-    time_filter_str = f'{time1}-{time2}'
-    global year # Define year as global variable
-    year = int(time1[:4])
-    
-    global bbox_g # Define bbox as global variable 
-    bbox_g = bbox
-    bbox_str = '.'.join([str(b) for b in bbox_g])
-    
-    global depth_g # Define bbox as global variable
-    depth_g = depth
-    
-    global vars_g
-    vars_g = vars_sel
-    
-    # Print input parameters
-    logging.info(f'Input Parameters:\nDepth: {depth_g}\nBBOX: {bbox_g}\nTime Range: {time1}-{time2}\nVars: {vars_g}')
+    # Check and print input parameters
+    checkParams(depth, bbox, time1, time2, vars_sel, separate, formats)
     
     # Define URL     
     nmdc_url = 'http://opendap1.nodc.no/opendap/physics/point/yearly/' # URL of Norwegian Marine Data Centre (NMDC) data server 
@@ -386,56 +405,46 @@ def extract(depth, bbox, time1, time2, vars_sel):
     # Now Export to File
     out_dir = mkdir() # make output directory
     
-    separate = True # 
-    """
-    if separate==True, create a separate output file for each var. 
-    if separate==False, save all vars in a unique output file.
-    """
-    print('\nCreating separate files for each variable')
-#     if separate:
-    for v in vars_g:
-        print(v)
-        fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_var={v}')
-
-        # Export to NetCDF
-        netcdfname = fname + '.nc.nc4'
-        merged_arr[v].to_netcdf(path=netcdfname,mode='w')
-    
-#     else:
-    
-    print('\nCreating unique file with all variables')
-    # Combine arrays across platforms, with ALL variables
-    merged_arr_vars = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys() for var in vars_g]) 
-    
-    fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_vars={"_".join(vars_g)}')
-
-    # Export to NetCDF
-    netcdfname = fname + '.nc.nc4'
-    merged_arr_vars.to_netcdf(path=netcdfname,mode='w')
+    if separate:
+        print('\nCreating separate files for each variable')
         
-    stop
-    
-    
-#     if len(vars_g)==1:
-#         # There's only one var
-#         fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_var={"_".join(vars_g)}')
-        
-#         # Export to NetCDF
-#         netcdfname = fname + '.nc.nc4'
-#         merged_arr[vars_g[0]].to_netcdf(path=netcdfname,mode='w')
-        
-#     if len(vars_g) > 1:
-        
-#     # File name (without file extension)
-#     fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_var={"_".join(vars_g)}')
-    
-#     # Export to NetCDF
-#     netcdfname = fname + '.nc.nc4'
-#     merged_arr['TEMP'].to_netcdf(path=netcdfname,
-#                                  mode='w')
+        for v in vars_g:
+            
+            fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_var={v}')
+            
+            if 'NetCDF' in formats_g:
+                # Export each variable to NetCDF separately
+                netcdfname = fname + '.nc.nc4'
+                merged_arr[v].to_netcdf(path=netcdfname,mode='w')
+                print(netcdfname, 'exported.')
 
+            if 'CSV' in formats_g:
+                # Export each variable to CSV separately
+                csvname = fname + '.csv'
+                merged_arr[v].to_dataframe().reset_index()[['TIME','DEPTH',v]].to_csv(csvname, sep=',', header=True)
+                print(csvname, 'exported.')
+    
+    else:
+        print('\nCreating unique file with all variables')
 
+        # Combine arrays across platforms, with ALL variables
+        merged_arr_vars = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys() for var in vars_g]) 
 
+        fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_vars={"-".join(vars_g)}')
+
+        if 'NetCDF' in formats_g:
+            # Export all variables to NetCDF
+            netcdfname = fname + '.nc.nc4'
+            merged_arr_vars.to_netcdf(path=netcdfname,mode='w')
+            print(netcdfname, 'exported.')
+
+        if 'CSV' in formats_g:
+            # Export all variables to CSV
+            csvname = fname + '.csv'
+            merged_arr_vars.to_dataframe().reset_index().to_csv(csvname, sep=',', header=True)
+            print(csvname, 'exported.')
+        
+    
     stop
     return 'EXTRACT complete.'
 
