@@ -30,30 +30,29 @@ def checkParams(depth, bbox, time1, time2, vars_sel, separate, formats):
     year = int(time1[:4])
     print('Time Range:', time_filter_str)
     
-    global bbox_g, bbox_str # Define bbox as global variable 
+    # Define Global Variables
+    global bbox_g, bbox_str, depth_g, vars_g, separate_g, formats_g
+    
     bbox_g = bbox
     bbox_str = '.'.join([str(b) for b in bbox_g])
     print('Bounding Box:', bbox_g) #, bbox_str)
     
-    global depth_g # Define bbox as global variable
     depth_g = depth
     print(f'Depth: {depth_g}m')
     
-    global vars_g
     vars_g = vars_sel
     print('Vars:', vars_g)
     
-    global separate_g
     separate_g = separate
     print('Separate files per Var:', separate_g)
     
-    global formats_g
     formats_g = []
     if 'csv' in formats: formats_g.append('CSV')
     if 'netcdf' in formats: formats_g.append('NetCDF')
     print('Output files format(s):', formats_g)
     assert len(formats_g) > 0, 'ERROR: Output file format entered is wrong. It must be "csv", "netcdf", or "csv,netcdf".'
 
+    
     
 def getDDS(url_info):
     # Get dds info, and assign max dimensions to TIME and DEPTH
@@ -421,7 +420,9 @@ def extract(depth, bbox, time1, time2, vars_sel, separate, formats):
             if 'CSV' in formats_g:
                 # Export each variable to CSV separately
                 csvname = fname + '.csv'
-                merged_arr[v].to_dataframe().reset_index()[['TIME','DEPTH',v]].to_csv(csvname, sep=',', header=True)
+                m_temp = merged_arr[v].to_dataframe().reset_index()
+                m_temp['DEPTH'] = depth
+                m_temp[['TIME','DEPTH',v]].to_csv(csvname, sep=',', header=True)
                 print(csvname, 'exported.')
     
     else:
@@ -441,7 +442,9 @@ def extract(depth, bbox, time1, time2, vars_sel, separate, formats):
         if 'CSV' in formats_g:
             # Export all variables to CSV
             csvname = fname + '.csv'
-            merged_arr_vars.to_dataframe().reset_index().to_csv(csvname, sep=',', header=True)
+            m_temp = merged_arr_vars.to_dataframe().reset_index()
+            m_temp['DEPTH'] = depth
+            m_temp.to_csv(csvname, sep=',', header=True)
             print(csvname, 'exported.')
         
     
