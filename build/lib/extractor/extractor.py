@@ -108,12 +108,12 @@ def makePositionDF(position_dict):
     return(position_df)
     
 
-def filterBBOXandTIME(position_df, bbox, time1, time2):
+def filterBBOXandTIME(position_df, time1, time2):
     # Filter the position_df dataframe by BBOX
-    position_df_bbox = position_df[(position_df.loc[:,'Longitude_WGS84'] >= bbox[0]) & 
-                                   (position_df.loc[:,'Longitude_WGS84'] <= bbox[1]) & 
-                                   (position_df.loc[:,'Latitude_WGS84'] >= bbox[2]) & 
-                                   (position_df.loc[:,'Latitude_WGS84'] <= bbox[3])]
+    position_df_bbox = position_df[(position_df.loc[:,'Longitude_WGS84'] >= bbox_g[0]) & 
+                                   (position_df.loc[:,'Longitude_WGS84'] <= bbox_g[1]) & 
+                                   (position_df.loc[:,'Latitude_WGS84'] >= bbox_g[2]) & 
+                                   (position_df.loc[:,'Latitude_WGS84'] <= bbox_g[3])]
 
     # Print filtering results on original dataframe
     global sel_outof_all
@@ -147,7 +147,7 @@ def getIndices(df_filtered):
     return index_dict
 
 
-def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, vars_sel, url_info):
+def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, url_info):
     data_dict = {}
     metadata = {}
 
@@ -213,7 +213,7 @@ def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, vars_sel, url_info):
 
         # join TIME and DEPTH for Variables
         var_str_ALL = []
-        for v in vars_sel: var_str_ALL = np.append(var_str_ALL, f'{v}{time_dims}{depth_dims}')
+        for v in vars_g: var_str_ALL = np.append(var_str_ALL, f'{v}{time_dims}{depth_dims}')
         queries_vars = ','.join(var_str_ALL)
 
         # Build url and url with queries (url_q)
@@ -232,7 +232,7 @@ def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, vars_sel, url_info):
     return data_dict, metadata
 
 
-def getVminDict(overview_df, vars_sel):
+def getVminDict(overview_df):
     vmin_dict = {}
 
     # select only those platforms where vmin == 1
@@ -241,13 +241,13 @@ def getVminDict(overview_df, vars_sel):
     for i in vmin_pc:
         vmin_dict[i] = {}
 
-        for v in vars_sel:
+        for v in vars_g:
             vmin_dict[i][v] = False
     
     return vmin_dict
 
 
-def filterbyDepthAndIndices(data_dict, metadata, vmin_dict, vars_sel, df_filtered):
+def filterbyDepthAndIndices(data_dict, metadata, vmin_dict, df_filtered):
     filtered_xarr_dict = {}
 
     print(f'Selected DEPTH: {depth_g}m')
@@ -257,7 +257,7 @@ def filterbyDepthAndIndices(data_dict, metadata, vmin_dict, vars_sel, df_filtere
         if metadata[pc]['depth_m_v1']==0: align_and_nan = True
         else: align_and_nan = False
 
-        for v in vars_sel: 
+        for v in vars_g: 
             check_alignment(data_dict, pc, v, align_and_nan, vmin_dict)
 
         filtered_xarr_dict[pc] = filter_xarr_DEPTH(df_filtered, 
@@ -269,7 +269,7 @@ def filterbyDepthAndIndices(data_dict, metadata, vmin_dict, vars_sel, df_filtere
     return filtered_xarr_dict
 
 
-def aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict, vars_sel):
+def aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict):
     # Dictionary of variables for each platform
     data_var_dict = {}
     depth_arr = []
@@ -284,7 +284,7 @@ def aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict, vars_sel):
 
         print(f'PC {pc}\tFiltered Dims: TIME={data.dims["TIME"]}, DEPTH={data.dims["DEPTH"]}')
 
-        for var in vars_sel:
+        for var in vars_g:
             data_var_dict[pc][var] = filtered_xarr_dict[pc][var]
 
     assert all(x==depth_arr[0] for x in depth_arr), 'ERROR, the DEPTH dimensions must be equal.'
@@ -292,11 +292,11 @@ def aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict, vars_sel):
     # Now combine arrays across platforms, for each variable
     merged_arr = {}
 
-    for var in vars_sel:
+    for var in vars_g:
 
         merged_arr[var] = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys()])  
 
-        title = f'Var={var} (Merged Platforms)\nFilter: Time Range={time_filter_str};\nBBOX={bbox_name}; Depth Range={depth_g}m;\nSel/All={sel_outof_all}'
+        title = f'Var={var} (Merged Platforms)\nFilter: Time Range={time_filter_str};\nBBOX={bbox_g}; Depth Range={depth_g}m;\nSel/All={sel_outof_all}'
 
         plotVar_MergedPlatforms(merged_arr[var], var, title=title)
         # display(merged_arr[var])
@@ -304,8 +304,14 @@ def aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict, vars_sel):
     return data_var_dict, merged_arr
 
 
+def mkdir():
+    out_dir = os.path.join(os.getcwd(), 'exported_data')
+    if not os.path.exists(out_dir): os.mkdir(out_dir)
+    return out_dir
+
+
 #=======================================================================================  
-def extract(depth, bbox, time1, time2, mesh, vars_sel):
+def extract(depth, bbox, time1, time2, vars_sel):
     #============= Set-up ==============
     assert time1[:4] == time2[:4], 'ERROR: different year, please check.'
     global time_filter_str
@@ -313,14 +319,18 @@ def extract(depth, bbox, time1, time2, mesh, vars_sel):
     global year # Define year as global variable
     year = int(time1[:4])
     
-    global bbox_name
-    bbox_name = bbox
-
-    global depth_g
+    global bbox_g # Define bbox as global variable 
+    bbox_g = bbox
+    bbox_str = '.'.join([str(b) for b in bbox_g])
+    
+    global depth_g # Define bbox as global variable
     depth_g = depth
     
+    global vars_g
+    vars_g = vars_sel
+    
     # Print input parameters
-    logging.info(f'Input Parameters:\nDepth: {depth_g}\nBBOX: {bbox}\nTime Range: {time1}-{time2}\nMesh: {mesh}\nVars: {vars_sel}')
+    logging.info(f'Input Parameters:\nDepth: {depth_g}\nBBOX: {bbox_g}\nTime Range: {time1}-{time2}\nVars: {vars_g}')
     
     # Define URL     
     nmdc_url = 'http://opendap1.nodc.no/opendap/physics/point/yearly/' # URL of Norwegian Marine Data Centre (NMDC) data server 
@@ -342,7 +352,7 @@ def extract(depth, bbox, time1, time2, mesh, vars_sel):
     position_df = makePositionDF(position_dict)
     
     # Filter by BBOX and Time
-    df_filtered = filterBBOXandTIME(position_df, bbox, time1, time2)
+    df_filtered = filterBBOXandTIME(position_df, time1, time2)
     print(df_filtered)
 
     # Dictionary of indices
@@ -353,7 +363,7 @@ def extract(depth, bbox, time1, time2, mesh, vars_sel):
     #============= Data Processing =============
     pc_sel = df_filtered['Platform'].unique()
     print(pc_sel)
-    data_dict, metadata = extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, vars_sel, url_info) # perhaps I can remove pc_dim_dict and related line
+    data_dict, metadata = extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, url_info) # perhaps I can remove pc_dim_dict and related line
     print(data_dict)
     
     # Create overview dataframe
@@ -362,19 +372,70 @@ def extract(depth, bbox, time1, time2, mesh, vars_sel):
     print(overview_df)
     
     # Generate vmin dictionary (needed to avoid doing the vmin adjustment more than once)
-    vmin_dict = getVminDict(overview_df, vars_sel)
+    vmin_dict = getVminDict(overview_df)
     print(vmin_dict)
     
     # Filter by Depth and Indices (generated by BBOX and Time indices)
-    filtered_xarr_dict = filterbyDepthAndIndices(data_dict, metadata, vmin_dict, vars_sel, df_filtered)
+    filtered_xarr_dict = filterbyDepthAndIndices(data_dict, metadata, vmin_dict, df_filtered)
     print(filtered_xarr_dict)
     
     # Aggregation of Available Platforms
-    data_var_dict, merged_arr = aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict, vars_sel)
+    data_var_dict, merged_arr = aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict)
     print(merged_arr)
     
-
+    # Now Export to File
+    out_dir = mkdir() # make output directory
     
+    separate = True # 
+    """
+    if separate==True, create a separate output file for each var. 
+    if separate==False, save all vars in a unique output file.
+    """
+    print('\nCreating separate files for each variable')
+#     if separate:
+    for v in vars_g:
+        print(v)
+        fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_var={v}')
+
+        # Export to NetCDF
+        netcdfname = fname + '.nc.nc4'
+        merged_arr[v].to_netcdf(path=netcdfname,mode='w')
+    
+#     else:
+    
+    print('\nCreating unique file with all variables')
+    # Combine arrays across platforms, with ALL variables
+    merged_arr_vars = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys() for var in vars_g]) 
+    
+    fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_vars={"_".join(vars_g)}')
+
+    # Export to NetCDF
+    netcdfname = fname + '.nc.nc4'
+    merged_arr_vars.to_netcdf(path=netcdfname,mode='w')
+        
+    stop
+    
+    
+#     if len(vars_g)==1:
+#         # There's only one var
+#         fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_var={"_".join(vars_g)}')
+        
+#         # Export to NetCDF
+#         netcdfname = fname + '.nc.nc4'
+#         merged_arr[vars_g[0]].to_netcdf(path=netcdfname,mode='w')
+        
+#     if len(vars_g) > 1:
+        
+#     # File name (without file extension)
+#     fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_var={"_".join(vars_g)}')
+    
+#     # Export to NetCDF
+#     netcdfname = fname + '.nc.nc4'
+#     merged_arr['TEMP'].to_netcdf(path=netcdfname,
+#                                  mode='w')
+
+
+
     stop
     return 'EXTRACT complete.'
 

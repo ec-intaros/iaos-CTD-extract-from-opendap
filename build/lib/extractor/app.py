@@ -57,14 +57,6 @@ logging.basicConfig(stream=sys.stderr,
     type=click.INT,
 )
 @click.option(
-    '--mesh',           
-    '-m',           
-    'mesh',           
-    required=True,  
-    help='The longitude and latitude resolution of the final map, expressed in degrees.',
-    type=click.FLOAT,
-)
-@click.option(
     '--vars',           
     '-v',           
     'vars',           
@@ -92,11 +84,10 @@ def main(ctx, **kwargs):
     time2 = str(kwargs['time2'])
     assert time1[:4] == time2[:4], 'ERROR: Years are different, please check.'
     
-    mesh = kwargs['mesh']
     vars_sel = kwargs['vars'].split(',')
 
     #==> Apply Extractor
-    out_file = extract(depth, bbox, time1, time2, mesh, vars_sel)
+    out_file = extract(depth, bbox, time1, time2, vars_sel)
     logging.info(out_file)    
     stop
     # Move results / outputs from TMPDIR back to local
