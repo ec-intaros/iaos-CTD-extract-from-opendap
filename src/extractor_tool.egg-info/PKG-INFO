@@ -7,5 +7,5 @@ License: Apache License, Version 2.0
 Keywords: keyword_1,keyword_2
 Platform: UNKNOWN
 
-This service performs: extraction of NetCDF data from a remote OPeNDAP server; data filtering by bounding box, time and depth; and output data export to CSV and/or NetCDF file.
+This service performs: i) extraction of NetCDF data from a remote OPeNDAP server; ii) data filtering by bounding box, time and depth; and iii) output data export to CSV and/or NetCDF file.
 

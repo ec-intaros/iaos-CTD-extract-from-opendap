@@ -18,7 +18,7 @@ logging.basicConfig(stream=sys.stderr,
 
 @click.command(
     short_help='OPeNDAP Data Extractor',
-    help='This service performs extraction of NetCDF data from a remote OPeNDAP server.',
+    help='This service performs: i) extraction of NetCDF data from a remote OPeNDAP server; ii) data filtering by bounding box, time and depth; and iii) output data export to CSV and/or NetCDF file.',
     context_settings=dict(
         ignore_unknown_options=True,
         allow_extra_args=True,
@@ -110,7 +110,7 @@ def main(ctx, **kwargs):
     
     
     stop
-    #assert time1[:4] == time2[:4], 'ERROR: Years are different, please check.'
+
     vars_sel = kwargs['vars'].split(',')
     if len(vars_sel) > 1:
         # the flag 'group' is required in this case

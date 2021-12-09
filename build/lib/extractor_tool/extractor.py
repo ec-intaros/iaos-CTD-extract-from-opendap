@@ -28,7 +28,7 @@ def checkParams(depth, bbox, time1, time2, vars_sel, group, formats):
     
     year1 = int(time1[:4]); print(year1)
     year2 = int(time2[:4]); print(year2)
-    assert year1<=year2, 'ERROR: different year, please check.'
+    assert year1<=year2, 'ERROR: year1 cannot be after year2, please check.'
     print(year1, year2)
     
     time_str = f'{time1}-{time2}'
