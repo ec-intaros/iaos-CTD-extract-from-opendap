@@ -1,0 +1,18 @@
+name: env_intaros_app
+channels:
+  - terradue
+  - conda-forge
+dependencies:
+  - python=3.7
+  - pydap
+  - ipykernel
+  - shapely
+  - requests
+  - pip
+  - lxml
+  - pyyaml
+  - matplotlib
+  - xarray
+  - geopandas
+  - click2cwl
+  - click

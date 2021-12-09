@@ -65,19 +65,19 @@ logging.basicConfig(stream=sys.stderr,
     type=click.STRING,
 )
 @click.option(
-    '--separate',           
-    '-s',           
-    'separate',           
-    required=True,  
-    help='if separate==true (“true”, “1”, “t”, “yes”, “y”, and “on”), create a separate output file for each var. If separate==false (“false”, “0”, “f”, “no”, “n”, and “off”), save all vars in a unique output file',
+    '--group',           
+    '-g',           
+    'group',           
+    required=False,  
+    help='if group==true (“true”, “1”, “t”, “yes”, “y”, and “on”), group all vars into a unique output file. If group==false (“false”, “0”, “f”, “no”, “n”, and “off”), create an output file for each var.',
     type=click.BOOL,
 )
 @click.option(
-    '--formats',           
+    '--format',           
     '-f',           
-    'formats',           
+    'format',           
     required=True,  
-    help='The format(s) desired for the generated output. Use: "csv" for CSV, "netcdf" for NetCDF, "csv,netcdf" for both.',
+    help='The format(s) desired for the generated output. Use: "csv" for CSV, "netcdf4" for NetCDF4, "csv,netcdf4" for both.',
     type=click.STRING,
 )
 @click.pass_context
@@ -100,11 +100,15 @@ def main(ctx, **kwargs):
     time2 = str(kwargs['time2'])
     assert time1[:4] == time2[:4], 'ERROR: Years are different, please check.'
     vars_sel = kwargs['vars'].split(',')
-    separate = kwargs['separate']
-    formats = [ff.lower() for ff in kwargs['formats'].split(',')]
+    if len(vars_sel) > 1:
+        # the flag 'group' is required in this case
+        group = kwargs['group']
+        assert group is not None, 'The flag "--group" is required when multiple variables are selected.'
+    else: group = False
+    formats = [ff.lower() for ff in kwargs['format'].split(',')]
     
     #==> Apply Extractor
-    out_file = extract(depth, bbox, time1, time2, vars_sel, separate, formats)
+    out_file = extract(depth, bbox, time1, time2, vars_sel, group, formats)
     logging.info(out_file)    
     stop
     # Move results / outputs from TMPDIR back to local

@@ -1,0 +1,11 @@
+Metadata-Version: 2.1
+Name: extractor-tool
+Version: 0.0.1
+Summary: Extractor Tool
+Home-page: UNKNOWN
+License: Apache License, Version 2.0
+Keywords: keyword_1,keyword_2
+Platform: UNKNOWN
+
+This service performs: extraction of NetCDF data from a remote OPeNDAP server; data filtering by bounding box, time and depth; and output data export to CSV and/or NetCDF file.
+

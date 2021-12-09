@@ -1,0 +1,3 @@
+[console_scripts]
+extractor-tool = extractor_tool.app:main
+
