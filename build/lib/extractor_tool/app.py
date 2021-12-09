@@ -82,7 +82,10 @@ logging.basicConfig(stream=sys.stderr,
 )
 @click.pass_context
 def main(ctx, **kwargs):
+    print(ctx)
+    print('ciao')
     
+    stop
     set_env()
     
     # dump the CWL and params (if requested)
@@ -98,7 +101,16 @@ def main(ctx, **kwargs):
     bbox = [int(bb) for bb in kwargs['bbox'].split(',')]
     time1 = str(kwargs['time1'])
     time2 = str(kwargs['time2'])
-    assert time1[:4] == time2[:4], 'ERROR: Years are different, please check.'
+    print('ciao')
+    
+    
+    
+    
+    
+    
+    
+    stop
+    #assert time1[:4] == time2[:4], 'ERROR: Years are different, please check.'
     vars_sel = kwargs['vars'].split(',')
     if len(vars_sel) > 1:
         # the flag 'group' is required in this case

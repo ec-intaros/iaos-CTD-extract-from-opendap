@@ -23,15 +23,18 @@ start_date = datetime(1950, 1, 1) # This reference date comes from the NetCDF co
 
 
 def checkParams(depth, bbox, time1, time2, vars_sel, group, formats):
-    assert time1[:4] == time2[:4], 'ERROR: different year, please check.'
-    global time_filter_str
-    time_filter_str = f'{time1}-{time2}'
+    # Define Global Variables
+    global time_str, year1, year2, bbox_g, bbox_str, depth_g, vars_g, group_g, formats_g
+    
+    year1 = int(time1[:4]); print(year1)
+    year2 = int(time2[:4]); print(year2)
+    assert year1<=year2, 'ERROR: different year, please check.'
+    print(year1, year2)
+    
+    time_str = f'{time1}-{time2}'
     global year # Define year as global variable
     year = int(time1[:4])
-    print('Time Range:', time_filter_str)
-    
-    # Define Global Variables
-    global bbox_g, bbox_str, depth_g, vars_g, group_g, formats_g
+    print('Time Range:', time_str)
     
     bbox_g = bbox
     bbox_str = '.'.join([str(b) for b in bbox_g])
@@ -161,7 +164,7 @@ def filterBBOXandTIME(position_df, time1, time2):
                                                       (position_df_bbox['Time']<=time_end)]
 
     # Print filtering results on original dataframe
-    print(f'User-defined Time Range: {time_filter_str}')
+    print(f'User-defined Time Range: {time_str}')
     sel_outof_all = f'{len(position_df_bbox_timerange)} out of {len(position_df)}.'
     print(f'Selected positions (out of available positions): {sel_outof_all}')
 
@@ -338,7 +341,7 @@ def mkdir():
 def exportGroup(out_dir, pc_sel, merged_arr_vars):
     print('\nCreating unique file with all variables')
 
-    fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_vars={"-".join(vars_g)}')
+    fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_str}_d={depth_g}m_vars={"-".join(vars_g)}')
 
     if 'NetCDF4' in formats_g:
         # Export all variables to NetCDF
