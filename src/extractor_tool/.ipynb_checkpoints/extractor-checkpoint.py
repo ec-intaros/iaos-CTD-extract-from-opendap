@@ -24,17 +24,14 @@ start_date = datetime(1950, 1, 1) # This reference date comes from the NetCDF co
 
 def checkParams(depth, bbox, time1, time2, vars_sel, group, formats):
     # Define Global Variables
-    global time_str, year1, year2, bbox_g, bbox_str, depth_g, vars_g, group_g, formats_g
+    global time_start, time_end, time_str, year1, year2, bbox_g, bbox_str, depth_g, vars_g, group_g, formats_g
     
-    year1 = int(time1[:4]); print(year1)
-    year2 = int(time2[:4]); print(year2)
-    assert year1<=year2, 'ERROR: year1 cannot be after year2, please check.'
-    print(year1, year2)
+    # Check dates
+    time_start, time_end, year1, year2, time_str = checkDates(time1,time2)
+    print('Time Range:', time_str)
     
-    time_str = f'{time1}-{time2}'
     global year # Define year as global variable
     year = int(time1[:4])
-    print('Time Range:', time_str)
     
     bbox_g = bbox
     bbox_str = '.'.join([str(b) for b in bbox_g])
@@ -55,7 +52,18 @@ def checkParams(depth, bbox, time1, time2, vars_sel, group, formats):
     print('Output files format(s):', formats_g)
     assert len(formats_g) > 0, 'ERROR: Output file format entered is wrong. It must be "csv", "netcdf4", or "csv,netcdf4".'
 
+
+def checkDates(time1,time2):
+    time_start = datetime(int(time1[:4]), int(time1[4:6]), int(time1[6:]))
+    time_end = datetime(int(time2[:4]), int(time2[4:6]), int(time2[6:]))
+    assert time_start < time_end, 'ERROR: time1 cannot be after time2, please check.'
+    year1 = int(time1[:4])
+    year2 = int(time2[:4])
+    time_str = f'{time1}-{time2}'
     
+    return time_start, time_end, year1, year2, time_str
+
+
 def getDDS(url_info):
     # Get dds info, and assign max dimensions to TIME and DEPTH
     
@@ -157,9 +165,6 @@ def filterBBOXandTIME(position_df, time1, time2):
 #     print(position_df_bbox)
 
     # Filter the position_df_bbox dataframe by TIME
-    time_start = datetime(int(time1[:4]), int(time1[4:6]), int(time1[6:]))
-    time_end = datetime(int(time2[:4]), int(time2[4:6]), int(time2[6:]))
-
     position_df_bbox_timerange = position_df_bbox.loc[(position_df_bbox['Time']>=time_start) & 
                                                       (position_df_bbox['Time']<=time_end)]
 
@@ -363,7 +368,7 @@ def exportSeparate(out_dir, pc_sel, merged_arr):
 
     for v in vars_g:
 
-        fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_filter_str}_d={depth_g}m_var={v}')
+        fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_str}_d={depth_g}m_var={v}')
         
         if 'NetCDF4' in formats_g:
             # Export each variable to NetCDF separately
