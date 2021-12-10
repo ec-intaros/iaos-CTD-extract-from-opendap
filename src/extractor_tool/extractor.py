@@ -24,19 +24,19 @@ start_date = datetime(1950, 1, 1) # This reference date comes from the NetCDF co
 
 def checkParams(depth, bbox, time1, time2, vars_sel, group, formats):
     # Define Global Variables
-    global time_start, time_end, time_str, year1, year2, bbox_g, bbox_str, depth_g, vars_g, group_g, formats_g
+    global time_start, time_end, time_str, year1, year2, sameyear, bbox_g, bbox_str, depth_g, vars_g, group_g, formats_g
     
     # Check dates
-    time_start, time_end, year1, year2, time_str = checkDates(time1,time2)
+    time_start, time_end, year1, year2, time_str, sameyear = checkDates(time1,time2)
     print('Time Range:', time_str)
-    
-    global year # Define year as global variable
-    year = int(time1[:4])
-    
+    print('Same Year flag:', sameyear)
+        
+    # Check bounding box
     bbox_g = bbox
     bbox_str = '.'.join([str(b) for b in bbox_g])
     print('Bounding Box:', bbox_g) #, bbox_str)
     
+    # Check depth
     depth_g = depth
     print(f'Depth: {depth_g}m')
     
@@ -57,14 +57,18 @@ def checkDates(time1,time2):
     time_start = datetime(int(time1[:4]), int(time1[4:6]), int(time1[6:]))
     time_end = datetime(int(time2[:4]), int(time2[4:6]), int(time2[6:]))
     assert time_start < time_end, 'ERROR: time1 cannot be after time2, please check.'
+    
     year1 = int(time1[:4])
     year2 = int(time2[:4])
     time_str = f'{time1}-{time2}'
     
-    return time_start, time_end, year1, year2, time_str
+    if year1==year2: sameyear = True
+    else: sameyear = False
+    
+    return time_start, time_end, year1, year2, time_str, sameyear
 
 
-def getDDS(url_info):
+def getDDS(url_info, year):
     # Get dds info, and assign max dimensions to TIME and DEPTH
     
     pc_dim_dict = {}
@@ -95,7 +99,7 @@ def getDDS(url_info):
     return pc_dim_dict
 
 
-def getPositionDict(pc_dim_dict, url_info):
+def getPositionDict(pc_dim_dict, url_info, year):
     # Extract data and create position_dict
     
     position_dict = {}
@@ -124,7 +128,7 @@ def makePositionDF(position_dict):
 
     for key in position_dict.keys():
         test = pd.DataFrame()
-
+    
         test['Longitude_WGS84'] = position_dict[key]['data']['LONGITUDE'].data.astype(float)
         test['Latitude_WGS84'] = position_dict[key]['data']['LATITUDE'].data.astype(float)
         test['Time'] = position_dict[key]['data']['TIME'].data.astype(float)
@@ -142,14 +146,14 @@ def makePositionDF(position_dict):
 
     # Now remove duplicates
     duplicates = position_df_raw[position_df_raw.duplicated(subset='Time') == True]
-    position_df = position_df_raw.drop_duplicates(subset=['Time'])
-
-    print(f'\nMerged dataframe with all platforms. Total of {len(position_df_raw)} measurement positions')
-    print(f'Duplicates: \t{len(duplicates)} / {len(position_df_raw)} \nRemaining: \t{len(position_df)} / {len(position_df_raw)}')
-    print(position_df)
-
-    return(position_df)
     
+    position_df_temp = position_df_raw.drop_duplicates(subset=['Time'])
+    
+    print(f'\nMerged dataframe with all platforms. Total of {len(position_df_raw)} measurement positions')
+    print(f'Duplicates: \t{len(duplicates)} / {len(position_df_raw)} \nRemaining: \t{len(position_df_temp)} / {len(position_df_raw)}')
+    
+    return position_df_temp
+
 
 def filterBBOXandTIME(position_df, time1, time2):
     # Filter the position_df dataframe by BBOX
@@ -397,19 +401,39 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     url_info = [nmdc_url, '']
 
     #============= Extraction of NetCDF data =============
-    # Retrieval of DDS info
-    pc_dim_dict = getDDS(url_info)
-    print(pc_dim_dict)
+    dds_year_dict = {}
+    pos_year_dict = {}
+    global position_df
+    position_df = pd.DataFrame()
+        
+    for year in range(year1, year2+1): # need to do a for loop over the years as the data is saved in years on the server
+        print('Working on year:', year)
     
-    # Extract all platform_codes
-    platform_codes = [pc for pc in pc_dim_dict.keys()]
-    print(f'Available platforms in given year {year}: {platform_codes}')
+        # Retrieval of DDS info
+        dds_year_dict[year] = getDDS(url_info, year) # dds_year_dict[year] replaced pc_dim_dict = getDDS(url_info, year)
+        pprint.pprint(dds_year_dict[year])
+        
+        # Extract all platform_codes for that year
+        platform_codes = [pc for pc in dds_year_dict[year].keys()]
+        print(f'Available platforms in given year {year}: {platform_codes}')
+        
+        # Create position_dict
+        pos_year_dict[year] = getPositionDict(dds_year_dict[year], url_info, year) # pos_year_dict[year] replaced position_dict
+        pprint.pprint(pos_year_dict[year])
+        
+        # Match and merge LAT, LONG and TIME of positions in a position_df dataframe
+        position_df_temp = makePositionDF(pos_year_dict[year])
+        position_df = position_df.append(position_df_temp, ignore_index=True)
+        print('\nPOSITION_DF', position_df)
+
+        
+    stop
+        
+    pprint.pprint(dds_year_dict)
+    stop
+        
     
-    # Create position_dict
-    position_dict = getPositionDict(pc_dim_dict, url_info)
     
-    # Match and merge LAT, LONG and TIME of positions in a position_df dataframe
-    position_df = makePositionDF(position_dict)
     
     # Filter by BBOX and Time
     df_filtered = filterBBOXandTIME(position_df, time1, time2)
