@@ -149,7 +149,7 @@ def makePositionDF(position_dict):
     
     position_df_temp = position_df_raw.drop_duplicates(subset=['Time'])
     
-    print(f'\nMerged dataframe with all platforms. Total of {len(position_df_raw)} measurement positions')
+    print(f'Merged dataframe with all platforms. Total of {len(position_df_raw)} measurement positions')
     print(f'Duplicates: \t{len(duplicates)} / {len(position_df_raw)} \nRemaining: \t{len(position_df_temp)} / {len(position_df_raw)}')
     
     return position_df_temp
@@ -173,7 +173,7 @@ def filterBBOXandTIME(position_df, time1, time2):
                                                       (position_df_bbox['Time']<=time_end)]
 
     # Print filtering results on original dataframe
-    print(f'User-defined Time Range: {time_str}')
+    print(f'\nUser-defined Time Range: {time_str}')
     sel_outof_all = f'{len(position_df_bbox_timerange)} out of {len(position_df)}.'
     print(f'Selected positions (out of available positions): {sel_outof_all}')
 
@@ -410,7 +410,7 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
         print('Working on year:', year)
     
         # Retrieval of DDS info
-        dds_year_dict[year] = getDDS(url_info, year) # dds_year_dict[year] replaced pc_dim_dict = getDDS(url_info, year)
+        dds_year_dict[year] = getDDS(url_info, year) # dds_year_dict[year] replaced pc_dim_dict 
         pprint.pprint(dds_year_dict[year])
         
         # Extract all platform_codes for that year
@@ -424,24 +424,25 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
         # Match and merge LAT, LONG and TIME of positions in a position_df dataframe
         position_df_temp = makePositionDF(pos_year_dict[year])
         position_df = position_df.append(position_df_temp, ignore_index=True)
-        print('\nPOSITION_DF', position_df)
+    
+    print('\nCOMBINED position_df\n', position_df)
 
-        
-    stop
-        
-    pprint.pprint(dds_year_dict)
-    stop
-        
-    
-    
-    
     # Filter by BBOX and Time
     df_filtered = filterBBOXandTIME(position_df, time1, time2)
     print(df_filtered)
-
-    # Dictionary of indices
+    
+     # Dictionary of indices
     index_dict = getIndices(df_filtered)
     print(index_dict)
+   
+    
+    
+    stop
+        
+    
+    
+    
+    
     
     print('\n================================\n================================\n')
     #============= Data Processing =============
