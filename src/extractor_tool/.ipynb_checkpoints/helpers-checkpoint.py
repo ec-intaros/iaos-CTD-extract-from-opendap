@@ -129,27 +129,30 @@ def adjust_with_vmin(xarr_var, value):
     return xarr_var_trimmed
 
 
-# Function to check whether data should be aligned if vmin = 1, and align if so if has not been done already
-def check_alignment(data_dict, pc, var, align_and_nan, vmin_dict):
+# # Function to check whether data should be aligned if vmin = 1, and align if so if has not been done already
+# def check_alignment(data_dict, pc, var, align_and_nan, vmin_dict):
     
-    xarr = data_dict[pc]['data']
-    xarr_var = xarr[var].data
+#     xarr = data_dict[pc]['data']
+#     xarr_var = xarr[var].data
     
-    vmin = float(xarr.attrs['geospatial_vertical_min'])
+#     vmin = float(xarr.attrs['geospatial_vertical_min'])
 
-    if vmin == 0:
-        print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var}')
+#     if vmin == 0:
+#         print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var}')
         
-    elif vmin==1 and vmin_dict[pc][var]==False and align_and_nan: 
-        # shift to the right and add nan in first position 
-        print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> aligning and add nan')
-        data_dict[pc]['data'][var].data = adjust_with_vmin(xarr_var, value=np.nan)
-        vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once        
-    elif vmin==1 and vmin_dict[pc][var]==False and not align_and_nan: 
-        # No need to shift, this occurred already in the data extraction
-        print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> data has been aligned already')
-        vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once
-        
+#     elif vmin==1 and vmin_dict[pc][var]==False and align_and_nan: 
+#         # shift to the right and add nan in first position 
+#         print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> aligning and add nan')
+#         data_dict[pc]['data'][var].data = adjust_with_vmin(xarr_var, value=np.nan)
+#         vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once        
+#     elif vmin==1 and vmin_dict[pc][var]==False and not align_and_nan: 
+#         # No need to shift, this occurred already in the data extraction
+#         print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> data has been aligned already')
+#         vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once
+    
+    
+# #     return data_dict[pc], vmin_dict[pc][var]
+
 
 # Function to define queries
 def getQuery(pc, start, stop):

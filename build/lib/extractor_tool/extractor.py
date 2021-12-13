@@ -13,10 +13,10 @@ from .helpers import *
 from lxml import html
 import requests
 
-logging.basicConfig(stream=sys.stderr, 
-                    level=logging.DEBUG,
-                    format='%(asctime)s %(levelname)-8s %(message)s',
-                    datefmt='%Y-%m-%dT%H:%M:%S')
+# logging.basicConfig(stream=sys.stderr, 
+#                     level=logging.DEBUG,
+#                     format='%(asctime)s %(levelname)-8s %(message)s',
+#                     datefmt='%Y-%m-%dT%H:%M:%S')
 
 # Global var
 start_date = datetime(1950, 1, 1) # This reference date comes from the NetCDF convention used for encoding the TIME variable in the CTD measurements
@@ -291,25 +291,55 @@ def getVminDict(overview_df):
     return vmin_dict
 
 
-def filterbyDepthAndIndices(data_dict, metadata, vmin_dict, df_filtered, year):
-    filtered_xarr_dict = {}
+# Function to check whether data should be aligned if vmin = 1, and align if so if has not been done already
+def check_alignment(data_dict, pc, var, align_and_nan, vmin_dict):
     
-    print(f'Selected DEPTH: {depth_g}m')
-    for pc in data_dict.keys():
+    xarr = data_dict[pc]['data']
+    xarr_var = xarr[var].data
+    
+    vmin = float(xarr.attrs['geospatial_vertical_min'])
 
-        # Generate a filtered xarray with all variables for selected Platform, for a certain DEPTH range
-        if metadata[pc]['depth_m_v1']==0: align_and_nan = True
-        else: align_and_nan = False
+    if vmin == 0:
+        print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var}')
+        
+    elif vmin==1 and vmin_dict[pc][var]==False and align_and_nan: 
+        # shift to the right and add nan in first position 
+        print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> aligning and add nan')
+        data_dict[pc]['data'][var].data = adjust_with_vmin(xarr_var, value=np.nan)
+        vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once        
+    elif vmin==1 and vmin_dict[pc][var]==False and not align_and_nan: 
+        # No need to shift, this occurred already in the data extraction
+        print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> data has been aligned already')
+        vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once
+    
+    
+#     return data_dict[pc], vmin_dict[pc][var]
 
-        for v in vars_g: 
-            check_alignment(data_dict, pc, v, align_and_nan, vmin_dict)
 
-        filtered_xarr_dict[pc] = filter_xarr_DEPTH(df_filtered, 
-                                                   data_dict,
-                                                   platform=pc,
-                                                   depth_range=[depth_g, depth_g])
-#         print(filtered_xarr_dict[pc])
+def filterbyDepthAndIndices(data_dict_yr, metadata_yr, vmin_dict_yr, df_filtered):
+    
+    print(f'\n3) Selected DEPTH: {depth_g}m')
+    
+    for year in data_dict_yr.keys():
+        print(year)
+        filtered_xarr_dict[year] = {}
+        
+        for pc in data_dict_yr[year].keys():
+            print(pc)
+            # Generate a filtered xarray with all variables for selected Platform, for a certain DEPTH range
+            if metadata_yr[year][pc]['depth_m_v1']==0: align_and_nan = True
+            else: align_and_nan = False
 
+            for v in vars_g: 
+                check_alignment(data_dict_yr[year], pc, v, align_and_nan, vmin_dict_yr[year]) 
+
+            filtered_xarr_dict[year][pc] = filter_xarr_DEPTH(df_filtered, 
+                                                             data_dict_yr[year],
+                                                             platform=pc,
+                                                             depth_range=[depth_g, depth_g])
+            print(filtered_xarr_dict[year][pc])
+        print('\n')
+    
     return filtered_xarr_dict
 
 
@@ -436,12 +466,12 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     print(index_dict)
    
     #============= Data Processing =============
-    print('\n================================\nData Processing\n================================')
+    print('\n1) ================================\nData Processing\n================================')
     
+    global data_dict_yr, metadata_yr, vmin_dict_yr, filtered_xarr_dict
     data_dict_yr = {}
     metadata_yr = {}
     vmin_dict_yr = {}
-    filtered_xarr_dict_yr = {}
     
     for year in range(year1, year2+1): # need to do a for loop over the years as the data is saved in years on the server
     
@@ -459,15 +489,16 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
         
         # Generate vmin dictionary (needed to avoid doing the vmin adjustment more than once)
         vmin_dict_yr[year] = getVminDict(overview_df)
-    print('Printing Results:')
-    print('data_dict_yr', data_dict_yr)
-    print('metadata_yr', metadata_yr)
-    print('vmin_dict_yr', vmin_dict_yr)
-    stop
-#     # Filter by Depth and Indices (generated by BBOX and Time indices)
-#     filtered_xarr_dict_yr[year] = filterbyDepthAndIndices(data_dict_yr[year], metadata_yr[year], vmin_dict, df_filtered, year)
-#     print(filtered_xarr_dict_yr[year])
-#         now need to apply filterbyDepthAndIndices with hte vmin for each year, and THEN the aggregation across years
+    print('\n2) ===================Printing Results:')
+    print('\n2.1) data_dict_yr', data_dict_yr)
+    print('\n2.2) metadata_yr', metadata_yr)
+    print('\n2.3) vmin_dict_yr', vmin_dict_yr)
+    
+    # Filter by Depth and Indices (generated by BBOX and Time indices)
+     
+    filtered_xarr_dict = {}
+    filtered_xarr_dict = filterbyDepthAndIndices(data_dict_yr, metadata_yr, vmin_dict_yr, df_filtered)
+    print('\n4) filtered_xarr_dict', filtered_xarr_dict)
     stop
         
         
