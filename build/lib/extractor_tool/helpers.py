@@ -1,13 +1,11 @@
 # Import modules
+import pandas as pd
 import numpy as np
-import matplotlib.pyplot as plt
-import xarray as xr
 import requests
 import re
-from pyproj import Transformer
+import pprint
+import xarray as xr
 import os
-import calendar 
-from datetime import datetime
 
 
 def set_env():
@@ -97,22 +95,8 @@ def getAttributes(my_df, my_dict):
         my_df.loc[key,'Lat_max'] = [my_dict[key]['data_attr'][11].astype(float)]
 
     return my_df    
-    
-    
-# Function to filter XARRAY based on platform, Var and DEPTH
-def filter_xarr_DEPTH(df_toPlot, data_dict, platform, depth_range):
-    
-    # find indices for each platform for the selected data
-    index = df_toPlot[df_toPlot['Platform']==platform].index.tolist()
-    
-    # Filer data using the indexes of the filtered elements
-    xarr_sel = data_dict[platform]['data'].isel(TIME=index,
-                                                LATITUDE=index,
-                                                LONGITUDE=index,
-                                                DEPTH=slice(depth_range[0], depth_range[1]+1))
-    return xarr_sel
 
-
+    
 # Function to adjust data array with Vertical Min
 def adjust_with_vmin(xarr_var, value):
     
@@ -129,37 +113,7 @@ def adjust_with_vmin(xarr_var, value):
     return xarr_var_trimmed
 
 
-# # Function to check whether data should be aligned if vmin = 1, and align if so if has not been done already
-# def check_alignment(data_dict, pc, var, align_and_nan, vmin_dict):
-    
-#     xarr = data_dict[pc]['data']
-#     xarr_var = xarr[var].data
-    
-#     vmin = float(xarr.attrs['geospatial_vertical_min'])
-
-#     if vmin == 0:
-#         print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var}')
-        
-#     elif vmin==1 and vmin_dict[pc][var]==False and align_and_nan: 
-#         # shift to the right and add nan in first position 
-#         print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> aligning and add nan')
-#         data_dict[pc]['data'][var].data = adjust_with_vmin(xarr_var, value=np.nan)
-#         vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once        
-#     elif vmin==1 and vmin_dict[pc][var]==False and not align_and_nan: 
-#         # No need to shift, this occurred already in the data extraction
-#         print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> data has been aligned already')
-#         vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once
-    
-    
-# #     return data_dict[pc], vmin_dict[pc][var]
-
-
 # Function to define queries
 def getQuery(pc, start, stop):
     dims = f'[{start}:1:{stop}]' # in the format [start,step,stop]
     return dims
-
-
-
-    
-    

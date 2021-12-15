@@ -95,7 +95,7 @@ def main(ctx, **kwargs):
     
     #==> Read Input Arguments
     depth = kwargs['depth']
-    bbox = kwargs['bbox']
+    bbox = [int(bb) for bb in kwargs['bbox'].split(',')]
     time1 = str(kwargs['time1'])
     time2 = str(kwargs['time2'])
     vars_sel = kwargs['vars'].split(',')
@@ -104,15 +104,17 @@ def main(ctx, **kwargs):
         group = kwargs['group']
         assert group is not None, 'The flag "--group" is required when multiple variables are selected.'
     else: group = False
-    formats = kwargs['format']
+    formats = [ff.lower() for ff in kwargs['format'].split(',')]
     
-    #==> Apply Extractor Tool
-    out_dir = extract(depth, bbox, time1, time2, vars_sel, group, formats)
-    logging.info(f'File exported in the directory: {out_dir}')    
-    
+    #==> Apply Extractor
+    out_file = extract(depth, bbox, time1, time2, vars_sel, group, formats)
+    logging.info(out_file)    
+    stop
     # Move results / outputs from TMPDIR back to local
     if "TMPDIR" in os.environ:
-        move(out_dir, cwd)
+        print('Here I have to move the output CSV/NetCDF file back to local')
+#         move('catalog.json', os.path.join(cwd, 'catalog.json'))
+#         move(item_out.id, os.path.join(cwd, item_out.id))
 
     logging.info('END.')
 

@@ -5,7 +5,8 @@ import numpy as np
 import pprint
 import xarray as xr
 import os, sys, logging
-from pyproj import Transformer
+
+import calendar
 from datetime import datetime, timedelta
 
 from .helpers import *
@@ -13,44 +14,14 @@ from .helpers import *
 from lxml import html
 import requests
 
-# logging.basicConfig(stream=sys.stderr, 
-#                     level=logging.DEBUG,
-#                     format='%(asctime)s %(levelname)-8s %(message)s',
-#                     datefmt='%Y-%m-%dT%H:%M:%S')
+logging.basicConfig(stream=sys.stderr, 
+                    level=logging.DEBUG,
+                    format='%(asctime)s %(levelname)-8s %(message)s',
+                    datefmt='%Y-%m-%dT%H:%M:%S')
 
 # Global var
+global start_date
 start_date = datetime(1950, 1, 1) # This reference date comes from the NetCDF convention used for encoding the TIME variable in the CTD measurements
-
-
-def checkParams(depth, bbox, time1, time2, vars_sel, group, formats):
-    # Define Global Variables
-    global time_start, time_end, time_str, year1, year2, sameyear, bbox_g, bbox_str, depth_g, vars_g, group_g, formats_g
-    
-    # Check dates
-    time_start, time_end, year1, year2, time_str, sameyear = checkDates(time1,time2)
-    print('Time Range:', time_str)
-    print('Same Year flag:', sameyear)
-        
-    # Check bounding box
-    bbox_g = bbox
-    bbox_str = '.'.join([str(b) for b in bbox_g])
-    print('Bounding Box:', bbox_g) #, bbox_str)
-    
-    # Check depth
-    depth_g = depth
-    print(f'Depth: {depth_g}m')
-    
-    vars_g = vars_sel
-    print('Vars:', vars_g)
-    
-    group_g = group
-    print('Separate files per Var:', group_g)
-    
-    formats_g = []
-    if 'csv' in formats: formats_g.append('CSV')
-    if 'netcdf4' in formats: formats_g.append('NetCDF4')
-    print('Output files format(s):', formats_g)
-    assert len(formats_g) > 0, 'ERROR: Output file format entered is wrong. It must be "csv", "netcdf4", or "csv,netcdf4".'
 
 
 def checkDates(time1,time2):
@@ -62,10 +33,49 @@ def checkDates(time1,time2):
     year2 = int(time2[:4])
     time_str = f'{time1}-{time2}'
     
-    if year1==year2: sameyear = True
-    else: sameyear = False
+    years = list(np.arange(year1,year2+1))
     
-    return time_start, time_end, year1, year2, time_str, sameyear
+    return time_start, time_end, year1, year2, time_str, years
+
+
+def checkParams(depth, bbox, time1, time2, vars_sel, group, formats):
+    # Define Global Variables
+    global time_start, time_end, time_str, year1, year2, years, bbox_g, bbox_str, depth_g, vars_g, group_g, formats_g
+     
+    # Check dates
+    time_start, time_end, year1, year2, time_str, years = checkDates(time1,time2)
+    print('Time Range:', time_str)
+    print('Years of data:', years)
+
+    # Check BBOX
+    bbox_g = [int(bb) for bb in bbox.split(',')]
+    bbox_str = '.'.join([str(b) for b in bbox_g])
+    print('Bounding Box:', bbox_g) #, bbox_str)
+
+    # Check depth
+    depth_g = depth
+    print(f'Depth: {depth_g}m')
+
+    # Check Vars
+    vars_g = vars_sel
+    print('Vars:', vars_g)
+
+    # Check 'group' flag
+    if len(vars_g) > 1:
+        # the flag 'group' is required in this case
+        group_g = group
+        assert group_g is not None, 'The flag "--group" is required when multiple variables are selected.'
+        print('Group files per Var:', group_g)
+
+    else: group = False
+    
+    # Check Formats
+    formats = [ff.lower() for ff in formats.split(',')]    
+    formats_g = []
+    if 'csv' in formats: formats_g.append('CSV')
+    if 'netcdf4' in formats: formats_g.append('NetCDF4')
+    print('Output files format(s):', formats_g)
+    assert len(formats_g) > 0, 'ERROR: Output file format entered is wrong. It must be "csv", "netcdf4", or "csv,netcdf4".'
 
 
 def getDDS(url_info, year):
@@ -119,7 +129,7 @@ def getPositionDict(pc_dim_dict, url_info, year):
 #     print(position_dict)    
     
     return position_dict
-    
+
 
 def makePositionDF(position_dict):
     # Load locations (LONG & LAT) and TIME of all measurements in a position_df_raw (includes duplicates)
@@ -140,10 +150,10 @@ def makePositionDF(position_dict):
         print(f'Platform {key}: {length} measurement locations.')
         
         position_df_raw = position_df_raw.append(test) 
-    
+        
     position_df_raw['Index_ABS'] = np.arange(0,len(position_df_raw))
     position_df_raw = position_df_raw.rename_axis("Index_Relative")
-
+    
     # Now remove duplicates
     duplicates = position_df_raw[position_df_raw.duplicated(subset='Time') == True]
     
@@ -151,7 +161,7 @@ def makePositionDF(position_dict):
     
     print(f'Merged dataframe with all platforms. Total of {len(position_df_raw)} measurement positions')
     print(f'Duplicates: \t{len(duplicates)} / {len(position_df_raw)} \nRemaining: \t{len(position_df_temp)} / {len(position_df_raw)}')
-    
+
     return position_df_temp
 
 
@@ -165,10 +175,9 @@ def filterBBOXandTIME(position_df, time1, time2):
     # Print filtering results on original dataframe
     global sel_outof_all
     sel_outof_all = f'{len(position_df_bbox)} out of {len(position_df)}.'
-#     print(f'Selected positions (out of available positions): {sel_outof_all}')
-#     print(position_df_bbox)
-
+    
     # Filter the position_df_bbox dataframe by TIME
+    
     position_df_bbox_timerange = position_df_bbox.loc[(position_df_bbox['Time']>=time_start) & 
                                                       (position_df_bbox['Time']<=time_end)]
 
@@ -180,15 +189,20 @@ def filterBBOXandTIME(position_df, time1, time2):
     # print(position_df_bbox_timerange)
     
     return position_df_bbox_timerange
-    
 
-def getIndices(df_filtered):
-    index_dict = {}
+
+def getIndices(df_filtered, year):
     
-    for pc in df_filtered['Platform'].unique():
-        index_dict[pc] = df_filtered[df_filtered['Platform']==pc].index.tolist()
+    index_dict[year] = {}
     
-    return index_dict
+    # Select available platforms ONLY of the specific year
+    df_year = df_filtered[pd.DatetimeIndex(df_filtered['Time']).year == year] # select only those rows of that year
+    # print(df_year)    
+
+    for pc in df_year['Platform'].unique():
+        index_dict[year][pc] = df_year[df_year['Platform']==pc].index.tolist()
+    
+    return index_dict[year]
 
 
 def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, url_info, year):  
@@ -270,8 +284,8 @@ def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, url_info, year):
                          'data_attr': data_attr}
 
         print(f'{data_attr}\n')
-
-    assert pc_sel == list(data_dict.keys()), 'ERROR: different platforms, please check.'
+    
+    assert list(pc_sel) == list(data_dict.keys()), 'ERROR: different platforms, please check.'
     
     return data_dict, metadata
 
@@ -291,9 +305,9 @@ def getVminDict(overview_df):
     return vmin_dict
 
 
-# Function to check whether data should be aligned if vmin = 1, and align if so if has not been done already
 def check_alignment(data_dict, pc, var, align_and_nan, vmin_dict):
-    
+    # Function to check whether data should be aligned if vmin = 1, and align if so if has not been done already
+
     xarr = data_dict[pc]['data']
     xarr_var = xarr[var].data
     
@@ -304,36 +318,39 @@ def check_alignment(data_dict, pc, var, align_and_nan, vmin_dict):
         
     elif vmin==1 and vmin_dict[pc][var]==False and align_and_nan: 
         # shift to the right and add nan in first position 
-        print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> aligning and add nan')
+        print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> aligning and add nan')        
         data_dict[pc]['data'][var].data = adjust_with_vmin(xarr_var, value=np.nan)
-        vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once        
+        vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once  
+        
     elif vmin==1 and vmin_dict[pc][var]==False and not align_and_nan: 
         # No need to shift, this occurred already in the data extraction
         print(f'Platform: {pc}; Vertical min: {vmin}; Var: {var} --> data has been aligned already')
         vmin_dict[pc][var] = True # to avoid doing hte vmin adjustment for this pc/var more than once
-    
-    
-#     return data_dict[pc], vmin_dict[pc][var]
 
 
 def filterbyDepthAndIndices(data_dict_yr, metadata_yr, vmin_dict_yr, df_filtered):
     
-    print(f'\n3) Selected DEPTH: {depth_g}m')
+    print(f'Selected DEPTH: {depth_g}m')
     
     for year in data_dict_yr.keys():
         print(year)
         filtered_xarr_dict[year] = {}
         
-        for pc in data_dict_yr[year].keys():
+        # Select available platforms ONLY of the specific year
+        df_year = df_filtered[pd.DatetimeIndex(df_filtered['Time']).year == year] # select only those rows of that year
+        pc_year = df_year['Platform'].unique()
+
+        for pc in pc_year:
             print(pc)
             # Generate a filtered xarray with all variables for selected Platform, for a certain DEPTH range
+            
             if metadata_yr[year][pc]['depth_m_v1']==0: align_and_nan = True
             else: align_and_nan = False
 
             for v in vars_g: 
                 check_alignment(data_dict_yr[year], pc, v, align_and_nan, vmin_dict_yr[year]) 
 
-            filtered_xarr_dict[year][pc] = filter_xarr_DEPTH(df_filtered, 
+            filtered_xarr_dict[year][pc] = filter_xarr_DEPTH(index_dict[year],
                                                              data_dict_yr[year],
                                                              platform=pc,
                                                              depth_range=[depth_g, depth_g])
@@ -343,32 +360,54 @@ def filterbyDepthAndIndices(data_dict_yr, metadata_yr, vmin_dict_yr, df_filtered
     return filtered_xarr_dict
 
 
-def aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict):
+def filter_xarr_DEPTH(index_yr, data_dict, platform, depth_range):
+    # Function to filter XARRAY based on platform, Var and DEPTH
+
+    # Filer data using the indexes of the elements filtered by year and platform 
+    xarr_sel = data_dict[platform]['data'].isel(TIME=index_yr[platform],
+                                                LATITUDE=index_yr[platform],
+                                                LONGITUDE=index_yr[platform],
+                                                DEPTH=slice(depth_range[0], depth_range[1]+1))
+    return xarr_sel
+
+
+def aggregatePlatforms(filtered_xarr_dict):
     # Dictionary of variables for each platform
-    data_var_dict = {}
     depth_arr = []
 
-    for pc in filtered_xarr_dict.keys():
+    for year in years:
+        print(year)
+        data_var_dict_yr[year] = {}
 
-        data_var_dict[pc] = {}
-        data = filtered_xarr_dict[pc]
+        for pc in filtered_xarr_dict[year].keys():
 
-        depth_dim_pc = data.dims["DEPTH"]
-        depth_arr.append(depth_dim_pc)
+            data_var_dict_yr[year][pc] = {}
+            data = filtered_xarr_dict[year][pc]
 
-        print(f'PC {pc}\tFiltered Dims: TIME={data.dims["TIME"]}, DEPTH={data.dims["DEPTH"]}')
+            depth_dim_pc = data.dims["DEPTH"]
+            depth_arr.append(depth_dim_pc)
 
-        for var in vars_g:
-            data_var_dict[pc][var] = filtered_xarr_dict[pc][var]
+            print(f'PC {pc}\tFiltered Dims: TIME={data.dims["TIME"]}, DEPTH={data.dims["DEPTH"]}')
 
-    assert all(x==depth_arr[0] for x in depth_arr), 'ERROR, the DEPTH dimensions must be equal.'
+            for var in vars_g:
+                data_var_dict_yr[year][pc][var] = filtered_xarr_dict[year][pc][var]
+
+        assert all(x==depth_arr[0] for x in depth_arr), 'ERROR, the DEPTH dimensions must be equal.'
+        #print(data_var_dict_yr[year])
         
-    # Now combine arrays across platforms, for each variable
-    merged_arr = {}
+    return data_var_dict_yr
 
-    for var in vars_g: merged_arr[var] = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys()])  
+
+def mergeArrays(data_var_dict_yr):
+    # Combine arrays across platforms, for each variable
         
-    return data_var_dict, merged_arr
+    for var in vars_g:
+        merged_arr[var] = xr.merge([data_var_dict_yr[y][pc][var] for y in data_var_dict_yr.keys() for pc in data_var_dict_yr[y].keys()] )  
+        
+        # title = f'Var={var} (Merged Platforms)\nFilter: Time Range={time_str};\nBBOX={bbox_g}; Depth {depth}m;\nSel/All={sel_outof_all}'
+        # plotVar_MergedPlatforms(merged_arr[var], var, title=title)
+    
+    return merged_arr
 
 
 def mkdir():
@@ -377,10 +416,32 @@ def mkdir():
     return out_dir
 
 
-def exportGroup(out_dir, pc_sel, merged_arr_vars):
-    print('\nCreating unique file with all variables')
+def exportSeparate(out_dir, merged_arr):
+    print('Creating separate files for each variable')
 
-    fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_str}_d={depth_g}m_vars={"-".join(vars_g)}')
+    for v in vars_g:
+
+        fname = os.path.join(out_dir,f'export_BBOX={bbox_str}_timerange={time_str}_d={depth_g}m_var={v}')
+        
+        if 'NetCDF4' in formats_g:
+            # Export each variable to NetCDF separately
+            netcdfname = fname + '.nc.nc4'
+            merged_arr[v].to_netcdf(path=netcdfname,mode='w')
+            print(netcdfname, 'exported.')
+
+        if 'CSV' in formats_g:
+            # Export each variable to CSV separately
+            csvname = fname + '.csv'
+            m_temp = merged_arr[v].to_dataframe().reset_index()
+            m_temp['DEPTH'] = depth_g
+            m_temp[['TIME','DEPTH',v]].to_csv(csvname, sep=',', header=True)
+            print(csvname, 'exported.')   
+            
+            
+def exportGroup(out_dir, merged_arr_vars):
+    print('Creating unique file with all variables')
+
+    fname = os.path.join(out_dir,f'export_BBOX={bbox_str}_timerange={time_str}_d={depth_g}m_vars={"-".join(vars_g)}')
 
     if 'NetCDF4' in formats_g:
         # Export all variables to NetCDF
@@ -397,29 +458,8 @@ def exportGroup(out_dir, pc_sel, merged_arr_vars):
         print(csvname, 'exported.')
         
         
-def exportSeparate(out_dir, pc_sel, merged_arr):
-    print('\nCreating separate files for each variable')
-
-    for v in vars_g:
-
-        fname = os.path.join(out_dir,f'pc={"_".join(pc_sel)}_BBOX={bbox_str}_timerange={time_str}_d={depth_g}m_var={v}')
-        
-        if 'NetCDF4' in formats_g:
-            # Export each variable to NetCDF separately
-            netcdfname = fname + '.nc.nc4'
-            merged_arr[v].to_netcdf(path=netcdfname,mode='w')
-            print(netcdfname, 'exported.')
-
-        if 'CSV' in formats_g:
-            # Export each variable to CSV separately
-            csvname = fname + '.csv'
-            m_temp = merged_arr[v].to_dataframe().reset_index()
-            m_temp['DEPTH'] = depth_g
-            m_temp[['TIME','DEPTH',v]].to_csv(csvname, sep=',', header=True)
-            print(csvname, 'exported.')   
 
 
-        
 #=======================================================================================  
 def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     #============= Set-up ==============
@@ -428,17 +468,17 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     
     # Define URL     
     nmdc_url = 'http://opendap1.nodc.no/opendap/physics/point/yearly/' # URL of Norwegian Marine Data Centre (NMDC) data server 
-    url_info = [nmdc_url, '']
-
+    url_info = [nmdc_url, '']; print('url:', nmdc_url)
+    
     #============= Extraction of NetCDF data =============
     dds_year_dict = {}
     pos_year_dict = {}
     global position_df
     position_df = pd.DataFrame()
         
-    for year in range(year1, year2+1): # need to do a for loop over the years as the data is saved in years on the server
-        print('Working on year:', year)
-    
+    for year in years: # need to do a for loop over the years as the data is saved in years on the server
+        print('\nWorking on year:', year)
+        
         # Retrieval of DDS info
         dds_year_dict[year] = getDDS(url_info, year) # dds_year_dict[year] replaced pc_dim_dict 
         pprint.pprint(dds_year_dict[year])
@@ -446,98 +486,94 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
         # Extract all platform_codes for that year
         platform_codes = [pc for pc in dds_year_dict[year].keys()]
         print(f'Available platforms in given year {year}: {platform_codes}')
-        
+
         # Create position_dict
         pos_year_dict[year] = getPositionDict(dds_year_dict[year], url_info, year) # pos_year_dict[year] replaced position_dict
-        pprint.pprint(pos_year_dict[year])
-        
+    #     pprint.pprint(pos_year_dict[year])
+
         # Match and merge LAT, LONG and TIME of positions in a position_df dataframe
+        print('Now makePositionDF')
         position_df_temp = makePositionDF(pos_year_dict[year])
-        position_df = position_df.append(position_df_temp, ignore_index=True)
-    
-    print('\nCOMBINED position_df\n', position_df)
+        print(position_df_temp)
+        
+        position_df = position_df.append(position_df_temp)
+
+    print('\nCOMBINED position_df'); print(position_df); print('')
 
     # Filter by BBOX and Time
     df_filtered = filterBBOXandTIME(position_df, time1, time2)
-    print(df_filtered)
+    print('\nFILTERED position_df'); print(df_filtered); print('')
+
+    # Dictionary of indices
+    global index_dict
+    index_dict = {}
+
+    for year in years: index_dict[year] = getIndices(df_filtered, year)
+    pprint.pprint(index_dict)
     
-     # Dictionary of indices
-    index_dict = getIndices(df_filtered)
-    print(index_dict)
-   
     #============= Data Processing =============
-    print('\n1) ================================\nData Processing\n================================')
+    print('\n================================\nData Processing\n================================')
     
     global data_dict_yr, metadata_yr, vmin_dict_yr, filtered_xarr_dict
     data_dict_yr = {}
     metadata_yr = {}
     vmin_dict_yr = {}
-    
-    for year in range(year1, year2+1): # need to do a for loop over the years as the data is saved in years on the server
-    
-        # Extract all platform_codes for that year
-        pc_sel = [pc for pc in dds_year_dict[year].keys()]
-        print(f'Working on year: {year} - Available platforms: {pc_sel}')
-            
-        data_dict_yr[year], metadata_yr[year] = extractVARsAndDepth(pc_sel, pos_year_dict[year], dds_year_dict[year], url_info, year) 
+
+    for year in years: # need to do a for loop over the years as the data is saved in years on the server
         
+        # Extract all platform_codes for that year, given the BBOX and time constraints
+        df_year = df_filtered[pd.DatetimeIndex(df_filtered['Time']).year == year] # select only those rows of that year
+        pc_sel = df_year['Platform'].unique()
+        print(f'Working on year: {year} - Available platforms: {pc_sel}')
+
+        data_dict_yr[year], metadata_yr[year] = extractVARsAndDepth(pc_sel, pos_year_dict[year], dds_year_dict[year], url_info, year) 
+
         print(f'Attributes Year: {year}')
         # Create overview dataframe
         overview_df = pd.DataFrame()
         overview_df = getAttributes(overview_df, data_dict_yr[year])
-        print('overview_df', overview_df)
-        
+        print('overview_df')
+        print(overview_df)
+
         # Generate vmin dictionary (needed to avoid doing the vmin adjustment more than once)
         vmin_dict_yr[year] = getVminDict(overview_df)
-    print('\n2) ===================Printing Results:')
-    print('\n2.1) data_dict_yr', data_dict_yr)
-    print('\n2.2) metadata_yr', metadata_yr)
-    print('\n2.3) vmin_dict_yr', vmin_dict_yr)
     
-    # Filter by Depth and Indices (generated by BBOX and Time indices)
-     
+    # Filter by Depth and Indices (generated by BBOX and Time indices) 
     filtered_xarr_dict = {}
     filtered_xarr_dict = filterbyDepthAndIndices(data_dict_yr, metadata_yr, vmin_dict_yr, df_filtered)
-    print('\n4) filtered_xarr_dict', filtered_xarr_dict)
-    stop
-        
-        
-    stop    
-#     pc_sel = df_filtered['Platform'].unique()
-#     print(pc_sel)
-#     data_dict, metadata = extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, url_info) # perhaps I can remove pc_dim_dict and related line
-#     print(data_dict)
+    print('filtered_xarr_dict', filtered_xarr_dict)    
+
     
-#     # Create overview dataframe
-#     overview_df = pd.DataFrame()
-#     overview_df = getAttributes(overview_df, data_dict)
-#     print(overview_df)
+    # Aggregation of Available Platforms in given Years
+    print('\nNow Aggregate')
+    global data_var_dict_yr
+    data_var_dict_yr = {}
+    data_var_dict_yr = aggregatePlatforms(filtered_xarr_dict)
+    print(data_var_dict_yr)
+
+    # Merge Arrays
+    print('\nNow Merge')
+    global merged_arr
+    merged_arr = {}
+    merged_arr = mergeArrays(data_var_dict_yr)
+    print(merged_arr['PSAL'])
     
-#     # Generate vmin dictionary (needed to avoid doing the vmin adjustment more than once)
-#     vmin_dict = getVminDict(overview_df)
-# #     print(vmin_dict)
-    
-    # Filter by Depth and Indices (generated by BBOX and Time indices)
-    filtered_xarr_dict = filterbyDepthAndIndices(data_dict, metadata, vmin_dict, df_filtered)
-    print(filtered_xarr_dict)
-    
-    # Aggregation of Available Platforms
-    data_var_dict, merged_arr = aggregatePlatformsAndMerge(data_dict, filtered_xarr_dict)
-    print(merged_arr)
-    
-    # Now Export to File
+    # Export to File
+    print('\nNow Export to File')
     out_dir = mkdir() # make output directory
-    
+
     if group: 
         # Combine arrays across platforms, with ALL variables
-        merged_arr_vars = xr.merge([data_var_dict[pc][var] for pc in data_dict.keys() for var in vars_g]) 
-        exportGroup(out_dir, pc_sel, merged_arr_vars)        
-    
+        merged_arr_vars = xr.merge([data_var_dict_yr[y][pc][var] for y in data_var_dict_yr.keys() for pc in data_var_dict_yr[y].keys() for var in vars_g])  
+    #     merged_arr_vars = merged_arr_vars.fillna(0) # though this fixed the PSAL NAN issue, but it doesnt 
+        exportGroup(out_dir, merged_arr_vars)        
+
     else: 
-        exportSeparate(out_dir, pc_sel, merged_arr)
-    print('Export done')
-    stop
-    return 'EXTRACT complete.'
+        exportSeparate(out_dir, merged_arr)
+    
+    print('EXTRACT complete.')
+
+    return out_dir
 
 
 
