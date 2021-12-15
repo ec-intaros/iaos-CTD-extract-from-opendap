@@ -6,7 +6,6 @@ import pprint
 import xarray as xr
 import os, sys, logging
 
-import calendar
 from datetime import datetime, timedelta
 
 from .helpers import *
@@ -126,7 +125,7 @@ def getPositionDict(pc_dim_dict, url_info, year):
 
         position_dict[pc] = {'data': remote_data, 
                              'data_attr': data_attr}
-#     print(position_dict)    
+    print(position_dict)    
     
     return position_dict
 
@@ -507,12 +506,11 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     # Dictionary of indices
     global index_dict
     index_dict = {}
-
     for year in years: index_dict[year] = getIndices(df_filtered, year)
-    pprint.pprint(index_dict)
+    print(index_dict)
     
     #============= Data Processing =============
-    print('\n================================\nData Processing\n================================')
+    print('\n============\nData Processing\n============')
     
     global data_dict_yr, metadata_yr, vmin_dict_yr, filtered_xarr_dict
     data_dict_yr = {}
@@ -543,23 +541,22 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     filtered_xarr_dict = filterbyDepthAndIndices(data_dict_yr, metadata_yr, vmin_dict_yr, df_filtered)
     print('filtered_xarr_dict', filtered_xarr_dict)    
 
-    
     # Aggregation of Available Platforms in given Years
-    print('\nNow Aggregate')
+    print('\nAggregate')
     global data_var_dict_yr
     data_var_dict_yr = {}
     data_var_dict_yr = aggregatePlatforms(filtered_xarr_dict)
     print(data_var_dict_yr)
 
     # Merge Arrays
-    print('\nNow Merge')
+    print('\nMerge')
     global merged_arr
     merged_arr = {}
     merged_arr = mergeArrays(data_var_dict_yr)
     print(merged_arr['PSAL'])
     
-    # Export to File
-    print('\nNow Export to File')
+    #============= Export to File =============
+    print('\n============\nExport to File\n============')
     out_dir = mkdir() # make output directory
 
     if group: 
