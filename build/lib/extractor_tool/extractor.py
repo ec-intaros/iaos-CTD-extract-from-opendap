@@ -462,6 +462,7 @@ def exportGroup(out_dir, merged_arr_vars):
 #=======================================================================================  
 def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     #============= Set-up ==============
+    print('\n============\nSet-up\n============')
     # Check and print input parameters
     checkParams(depth, bbox, time1, time2, vars_sel, group, formats)
     
@@ -470,6 +471,7 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     url_info = [nmdc_url, '']; print('url:', nmdc_url)
     
     #============= Extraction of NetCDF data =============
+    print('\n============\nData Extraction\n============')
     dds_year_dict = {}
     pos_year_dict = {}
     global position_df
