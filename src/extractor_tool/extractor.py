@@ -120,7 +120,7 @@ def getPositionDict(pc_dim_dict, url_info, year):
 
         position_dict[pc] = {'data': remote_data, 
                              'data_attr': data_attr}
-    print(position_dict)    
+    # print(position_dict)    
     
     return position_dict
 
@@ -176,7 +176,7 @@ def filterBBOXandTIME(position_df, time1, time2):
                                                       (position_df_bbox['Time']<=time_end)]
 
     # Print filtering results on original dataframe
-    print(f'\nUser-defined Time Range: {time_str}')
+    print(f'User-defined Time Range: {time_str}')
     sel_outof_all = f'{len(position_df_bbox_timerange)} out of {len(position_df)}.'
     print(f'Selected positions (out of available positions): {sel_outof_all}')
 
@@ -251,7 +251,7 @@ def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, url_info, year):
 
         metadata[pc]['depth_newindex4xr_v1'] = 0
 
-        pprint.pprint(metadata[pc])
+        # pprint.pprint(metadata[pc])
         print(f'{pc} DEPTH range of interest (adjusted with vmin): {metadata[pc]["depth_newindex_v1"]} - {metadata[pc]["depth_newindex_v2"]}')
 
         fix_lab = f'58{pc}_CTD_{year}' # platform_codes and year are defined at the beginning of the notebook 
@@ -277,7 +277,7 @@ def extractVARsAndDepth(pc_sel, position_dict, pc_dim_dict, url_info, year):
         data_dict[pc] = {'data': remote_data, 
                          'data_attr': data_attr}
 
-        print(f'{data_attr}\n')
+        # print(f'{data_attr}\n')
     
     assert list(pc_sel) == list(data_dict.keys()), 'ERROR: different platforms, please check.'
     
@@ -348,7 +348,7 @@ def filterbyDepthAndIndices(data_dict_yr, metadata_yr, vmin_dict_yr, df_filtered
                                                              data_dict_yr[year],
                                                              platform=pc,
                                                              depth_range=[depth_g, depth_g])
-            print(filtered_xarr_dict[year][pc])
+            # print(filtered_xarr_dict[year][pc])
         print('\n')
     
     return filtered_xarr_dict
@@ -457,16 +457,16 @@ def exportGroup(out_dir, merged_arr_vars):
 #=======================================================================================  
 def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     #============= Set-up ==============
-    print('\n============\nSet-up\n============')
+    print('\n======\nSet-up\n======')
     # Check and print input parameters
     checkParams(depth, bbox, time1, time2, vars_sel, group, formats)
-    stop
+    
     # Define URL     
     nmdc_url = 'http://opendap1.nodc.no/opendap/physics/point/yearly/' # URL of Norwegian Marine Data Centre (NMDC) data server 
     url_info = [nmdc_url, '']; print('url:', nmdc_url)
     
     #============= Extraction of NetCDF data =============
-    print('\n============\nData Extraction\n============')
+    print('\n===============\nData Extraction\n===============')
     dds_year_dict = {}
     pos_year_dict = {}
     global position_df
@@ -477,7 +477,7 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
         
         # Retrieval of DDS info
         dds_year_dict[year] = getDDS(url_info, year) # dds_year_dict[year] replaced pc_dim_dict 
-        pprint.pprint(dds_year_dict[year])
+        # pprint.pprint(dds_year_dict[year])
         
         # Extract all platform_codes for that year
         platform_codes = [pc for pc in dds_year_dict[year].keys()]
@@ -488,13 +488,13 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     #     pprint.pprint(pos_year_dict[year])
 
         # Match and merge LAT, LONG and TIME of positions in a position_df dataframe
-        print('Now makePositionDF')
+        # print('Now makePositionDF')
         position_df_temp = makePositionDF(pos_year_dict[year])
-        print(position_df_temp)
+        # print(position_df_temp)
         
         position_df = position_df.append(position_df_temp)
 
-    print('\nCOMBINED position_df'); print(position_df); print('')
+    # print('\nCOMBINED position_df'); print(position_df); print('')
 
     # Filter by BBOX and Time
     df_filtered = filterBBOXandTIME(position_df, time1, time2)
@@ -504,10 +504,10 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     global index_dict
     index_dict = {}
     for year in years: index_dict[year] = getIndices(df_filtered, year)
-    print(index_dict)
+    # print(index_dict)
     
     #============= Data Processing =============
-    print('\n============\nData Processing\n============')
+    print('\n===============\nData Processing\n===============')
     
     global data_dict_yr, metadata_yr, vmin_dict_yr, filtered_xarr_dict
     data_dict_yr = {}
@@ -523,12 +523,12 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
 
         data_dict_yr[year], metadata_yr[year] = extractVARsAndDepth(pc_sel, pos_year_dict[year], dds_year_dict[year], url_info, year) 
 
-        print(f'Attributes Year: {year}')
+        # print(f'Attributes Year: {year}')
         # Create overview dataframe
         overview_df = pd.DataFrame()
         overview_df = getAttributes(overview_df, data_dict_yr[year])
-        print('overview_df')
-        print(overview_df)
+        # print('overview_df')
+        # print(overview_df)
 
         # Generate vmin dictionary (needed to avoid doing the vmin adjustment more than once)
         vmin_dict_yr[year] = getVminDict(overview_df)
@@ -536,21 +536,21 @@ def extract(depth, bbox, time1, time2, vars_sel, group, formats):
     # Filter by Depth and Indices (generated by BBOX and Time indices) 
     filtered_xarr_dict = {}
     filtered_xarr_dict = filterbyDepthAndIndices(data_dict_yr, metadata_yr, vmin_dict_yr, df_filtered)
-    print('filtered_xarr_dict', filtered_xarr_dict)    
+    # print('filtered_xarr_dict', filtered_xarr_dict)    
 
     # Aggregation of Available Platforms in given Years
     print('\nAggregate')
     global data_var_dict_yr
     data_var_dict_yr = {}
     data_var_dict_yr = aggregatePlatforms(filtered_xarr_dict)
-    print(data_var_dict_yr)
+    # print(data_var_dict_yr)
 
     # Merge Arrays
     print('\nMerge')
     global merged_arr
     merged_arr = {}
     merged_arr = mergeArrays(data_var_dict_yr)
-    print(merged_arr['PSAL'])
+    # print(merged_arr['PSAL'])
     
     #============= Export to File =============
     print('\n============\nExport to File\n============')
