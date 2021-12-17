@@ -61,14 +61,16 @@ logging.basicConfig(stream=sys.stderr,
     '-v',           
     'vars',           
     required=True,  
-    help='The variable of interest (e.g. "TEMP"), or a list of them separated by a comma and without spaces (e.g. "TEMP,PRESS").',
+    help='The variable of interest (e.g. "TEMP"), or a list of them separated by a comma and without spaces (e.g. "TEMP,PRES,PSAL,CNDC").',
     type=click.STRING,
 )
 @click.option(
     '--group',           
     '-g',           
     'group',           
-    required=False,  
+    required=False, 
+    default='False',
+    show_default=True, 
     help='if group==true (“true”, “1”, “t”, “yes”, “y”, and “on”), group all vars into a unique output file. If group==false (“false”, “0”, “f”, “no”, “n”, and “off”), create an output file for each var.',
     type=click.BOOL,
 )
@@ -76,7 +78,9 @@ logging.basicConfig(stream=sys.stderr,
     '--format',           
     '-f',           
     'format',           
-    required=True,  
+    required=False,  
+    default='NetCDF4',
+    show_default=True, 
     help='The format(s) desired for the generated output. Use: "csv" for CSV, "netcdf4" for NetCDF4, "csv,netcdf4" for both.',
     type=click.STRING,
 )
@@ -99,11 +103,7 @@ def main(ctx, **kwargs):
     time1 = str(kwargs['time1'])
     time2 = str(kwargs['time2'])
     vars_sel = kwargs['vars'].split(',')
-    if len(vars_sel) > 1:
-        # the flag 'group' is required in this case
-        group = kwargs['group']
-        assert group is not None, 'The flag "--group" is required when multiple variables are selected.'
-    else: group = False
+    group = kwargs['group']
     formats = kwargs['format']
     
     #==> Apply Extractor Tool
