@@ -25,7 +25,7 @@ extractor-tool --help
 If the app is installed successfully, the extractor-tool help will display.
 
 ## Configuration to execute the Jupyter Notebook (for development and debugging)
-To and activate a kernel in Jupyter Notebook with the **env_intaros_app** environment just created, execute the following command: 
+To activate the kernel in Jupyter Notebook with the **env_intaros_app** environment just created, execute the following command: 
 ```
 python -m ipykernel install --user --name env_intaros_app --display-name 'env_intaros_app'
 ```
